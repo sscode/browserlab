@@ -27,12 +27,16 @@ Customer adoption has not been validated. Reference-suite success does not prove
 ## Install from a supplied archive
 
 ```sh
-npm install --global ./browserlab-0.1.0.tgz
-browserlab --version
-browserlab doctor
-browserlab demo --repetitions 1
+mkdir browserlab-pilot
+cd browserlab-pilot
+npm init -y
+npm install /absolute/path/to/browserlab-0.1.0.tgz
+npx agent-browser install
+node node_modules/browserlab/scripts/install-lightpanda.mjs 1.0.0
+npx browserlab doctor
+npx browserlab demo --repetitions 1
 ```
 
-Install Chrome with `npx agent-browser@0.38.2 install`. Install Lightpanda from its official distribution and set `BROWSERLAB_LIGHTPANDA` if it is outside the usual locations. A source checkout also includes `npm run install:lightpanda`.
+Replace the archive path with the supplied file's location. This installs the CLI in the pilot directory. The next two commands install the browser binaries. The Lightpanda installer checks the publisher's checksum. Set `BROWSERLAB_LIGHTPANDA` to use a custom binary path; the installer also uses this path. A source checkout includes the equivalent `npm run install:lightpanda` command.
 
 The archive is separate from the browser binaries. The project name has not been reserved on npm. Do not assume that the public npm package with the same name belongs to this project.

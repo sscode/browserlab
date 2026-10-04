@@ -5,7 +5,7 @@ import { createWriteStream } from 'node:fs';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const version = process.argv[2] ?? '1.0.0';
 const target = ({ darwin: { x64: 'x86_64-macos', arm64: 'aarch64-macos' }, linux: { x64: 'x86_64-linux', arm64: 'aarch64-linux' } })[process.platform]?.[process.arch];
@@ -16,8 +16,8 @@ const manifest = await manifestResponse.json();
 const asset = manifest[version]?.[target];
 if (!asset?.download_url || !/^[a-f0-9]{64}$/i.test(asset.shasum)) throw new Error(`No verified ${version} asset for ${target}`);
 if (!asset.download_url.startsWith('https://')) throw new Error('Engine download must use HTTPS');
-const dir = join(homedir(), '.cache', 'lightpanda-node');
-const destination = join(dir, 'lightpanda');
+const destination = resolve(process.env.BROWSERLAB_LIGHTPANDA || join(homedir(), '.cache', 'lightpanda-node', 'lightpanda'));
+const dir = dirname(destination);
 const existing = await readFile(destination).catch(() => null);
 if (existing && createHash('sha256').update(existing).digest('hex').toLowerCase() === asset.shasum.toLowerCase()) {
   await chmod(destination, 0o700);

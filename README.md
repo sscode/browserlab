@@ -35,6 +35,8 @@ browserlab run browserlab.json
 
 The npm name is provisional. This repository does not imply that `npm install browserlab` installs this project. Use a repository checkout or an explicitly supplied release archive until a package is published.
 
+If you received an archive, follow the [archive installation steps](docs/release-notes.md#install-from-a-supplied-archive).
+
 ## Your first workflow
 
 ```json
@@ -109,7 +111,7 @@ These are workload measurements, not universal browser rankings. No cost estimat
 | Variable | Use |
 | --- | --- |
 | `BROWSERLAB_CHROME` | Path to a specific Chrome executable |
-| `BROWSERLAB_LIGHTPANDA` | Path to a specific Lightpanda executable |
+| `BROWSERLAB_LIGHTPANDA` | Path to a specific Lightpanda executable; also sets the installer destination |
 | `BROWSERLAB_AGENT_BROWSER` | Override adapter executable, for development |
 
 The runner uses a dedicated agent-browser namespace and an empty adapter configuration. It excludes inherited agent-browser configuration and proxy variables. It never connects to your personal browser profile. The Lightpanda installer verifies the publisher's SHA-256 checksum and installs version 1.0.0.

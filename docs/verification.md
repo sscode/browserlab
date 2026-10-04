@@ -33,7 +33,9 @@ The reference suite contains deliberate failures. Matching those expectations pr
 
 ## Installer observation
 
-A fresh engine re-download exceeded the initial three-minute limit. The installer now streams downloads, shows progress, permits ten minutes, and reuses only a binary that matches the publisher's checksum. The checksum check against the installed Lightpanda 1.0.0 binary passed. A fresh download through the revised stream path still needs independent verification.
+A fresh engine re-download exceeded the initial three-minute limit. The installer now streams downloads, shows progress, permits ten minutes, and reuses only a binary that matches the publisher's checksum.
+
+The revised installer subsequently completed a fresh download to `/tmp/browserlab-fresh-engine/lightpanda`. Its SHA-256 matched the publisher's manifest: `955440053a84754dd64c62f970449a56a2b350cdf43ea5f2e809a73047b8173d`. A second installation reused that binary after checking its checksum. `browserlab doctor --engines lightpanda`, with `BROWSERLAB_LIGHTPANDA` set to that path, passed startup and cleanup and reported Lightpanda 1.0.0. This verifies the macOS arm64 installation path. Linux installation still requires the remote CI run.
 
 ## Evidence not yet available
 
