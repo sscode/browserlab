@@ -13,6 +13,8 @@ Requirements: Node.js 24+, macOS or Linux, Chrome, and Lightpanda. Windows suppo
 From this repository:
 
 ```sh
+git clone https://github.com/sscode/browserlab.git
+cd browserlab
 npm ci
 npm run build
 npx agent-browser install

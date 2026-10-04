@@ -24,6 +24,8 @@ Date: 2026-10-04. Environment: macOS, Apple Silicon, Node.js 24.16.0.
 | Installed archive workflow | 20/20 declared outcomes matched on Chrome | `.browserlab/package-smoke/results.json`, using the CLI installed in `/tmp/browserlab-alpha-final` |
 | Final two-engine smoke check | 40/40 declared outcomes matched with exact version metadata | `.browserlab/release-verification/results.json` |
 | Final session inventory | No active BrowserLab sessions | `agent-browser --namespace browserlab session list --json` |
+| Public source publication | Public MIT repository; source pushed to `main` | [sscode/browserlab](https://github.com/sscode/browserlab) |
+| Linux GitHub CI | Core checks, 120 reference trials, and real-engine integration passed | [Run 37241720164](https://github.com/sscode/browserlab/actions/runs/37241720164), commit `d8b0ba4` |
 
 The repeated run used agent-browser 0.38.2, Chrome 154, and Lightpanda 1.0.0. The first version metadata used user-agent strings. A later correction reads exact Chrome metadata through CDP and the Lightpanda version from its binary. Lightpanda's CDP endpoint reports a Chrome compatibility version, which must not be presented as its engine version.
 
@@ -35,12 +37,13 @@ The reference suite contains deliberate failures. Matching those expectations pr
 
 A fresh engine re-download exceeded the initial three-minute limit. The installer now streams downloads, shows progress, permits ten minutes, and reuses only a binary that matches the publisher's checksum.
 
-The revised installer subsequently completed a fresh download to `/tmp/browserlab-fresh-engine/lightpanda`. Its SHA-256 matched the publisher's manifest: `955440053a84754dd64c62f970449a56a2b350cdf43ea5f2e809a73047b8173d`. A second installation reused that binary after checking its checksum. `browserlab doctor --engines lightpanda`, with `BROWSERLAB_LIGHTPANDA` set to that path, passed startup and cleanup and reported Lightpanda 1.0.0. This verifies the macOS arm64 installation path. Linux installation still requires the remote CI run.
+The revised installer subsequently completed a fresh download to `/tmp/browserlab-fresh-engine/lightpanda`. Its SHA-256 matched the publisher's manifest: `955440053a84754dd64c62f970449a56a2b350cdf43ea5f2e809a73047b8173d`. A second installation reused that binary after checking its checksum. `browserlab doctor --engines lightpanda`, with `BROWSERLAB_LIGHTPANDA` set to that path, passed startup and cleanup and reported Lightpanda 1.0.0. This verifies the macOS arm64 installation path. The successful GitHub run above also verified fresh installation and both engines on Linux.
+
+The first Linux run exposed Ubuntu's restriction on user namespaces for downloaded Chrome binaries. The workflow now installs a path-scoped AppArmor profile following Chromium's guidance. Chrome's sandbox remains enabled. The subsequent run passed both engine startup checks, all 20 reference cases with three repetitions per engine, and the defect, screenshot, secret-handling, and cancellation integration checks.
 
 ## Evidence not yet available
 
-- Linux CI execution on GitHub. The workflow is prepared but has not run remotely.
-- Public repository and release publication.
+- Tagged release and downloadable release assets. The source repository is public.
 - Five customer interviews.
 - Three external teams with representative workflows.
 - Customer findings from independent report use.
