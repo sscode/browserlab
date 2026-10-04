@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "name": "My first browser comparison",
+  "engines": [
+    "chrome",
+    "lightpanda"
+  ],
+  "repetitions": 3,
+  "timeoutMs": 30000,
+  "tests": [
+    {
+      "id": "page-heading",
+      "name": "Read the example page",
+      "steps": [
+        {
+          "action": "open",
+          "url": "https://example.com"
+        },
+        {
+          "action": "extract",
+          "as": "heading",
+          "selector": "h1",
+          "kind": "text"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/heading",
+          "op": "equals",
+          "value": "Example Domain"
+        }
+      ]
+    }
+  ]
+}

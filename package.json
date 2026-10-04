@@ -1,0 +1,39 @@
+{
+  "name": "browserlab",
+  "version": "0.1.0",
+  "description": "Local correctness and regression tests for browser automation across Chrome and Lightpanda.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "browserlab": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "!dist/test",
+    "examples",
+    "docs",
+    "scripts/install-lightpanda.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "install:lightpanda": "node scripts/install-lightpanda.mjs 1.0.0",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "test:integration": "npm run build && node dist/test/engines.integration.js",
+    "check": "tsc --noEmit",
+    "demo": "npm run build && node dist/cli.js demo",
+    "verify:engines": "npm run build && node dist/cli.js demo --repetitions 1",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "agent-browser": "0.38.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}

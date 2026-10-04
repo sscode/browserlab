@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.browserlab/
+*.tgz
+.DS_Store
+.env
+.env.*
+!.env.example

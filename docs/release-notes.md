@@ -1,0 +1,38 @@
+# BrowserLab 0.1.0 alpha
+
+This is the first local, open-source release candidate. It targets read-only browser workflows on macOS and Linux.
+
+## Included
+
+- JSON test suites with explicit assertions.
+- Chrome and Lightpanda execution through agent-browser 0.38.2.
+- A local reference site with 20 positive and negative cases.
+- Repeated trials, alternating engine order, and preserved retries.
+- Isolated sessions, time limits, cancellation, and cleanup checks.
+- Baseline acceptance and correctness/performance comparisons.
+- Searchable offline HTML, raw JSON, and JUnit reports.
+- CI example, contribution guide, and pilot evaluation kit.
+- A checksum-verified Lightpanda 1.0.0 installer.
+
+## Limitations
+
+The CLI is an early alpha. The workflow format can change before version 1.0. BrowserLab currently supports a defined JSON command set, not arbitrary automation scripts.
+
+There is no hosted execution, result-upload service, model evaluation, or automatic engine selection. Screenshots require Chrome. Visual layout assertions are outside the initial scope.
+
+Memory uses sampled RSS and can count shared pages twice. CPU measurements are lower bounds. Performance gates are heuristics. See `methodology.md` for comparison limits.
+
+Customer adoption has not been validated. Reference-suite success does not prove compatibility with all websites.
+
+## Install from a supplied archive
+
+```sh
+npm install --global ./browserlab-0.1.0.tgz
+browserlab --version
+browserlab doctor
+browserlab demo --repetitions 1
+```
+
+Install Chrome with `npx agent-browser@0.38.2 install`. Install Lightpanda from its official distribution and set `BROWSERLAB_LIGHTPANDA` if it is outside the usual locations. A source checkout also includes `npm run install:lightpanda`.
+
+The archive is separate from the browser binaries. The project name has not been reserved on npm. Do not assume that the public npm package with the same name belongs to this project.
