@@ -8,6 +8,8 @@ The repository workflow installs pinned dependencies, installs Lightpanda 1.0.0 
 
 The workflow saves HTML, JSON, and JUnit results even after a failed check. The fixture server uses loopback. No third-party website is part of the required suite.
 
+Ubuntu runners can block the user namespaces that downloaded Chrome builds need for their sandbox. The repository workflow installs an AppArmor profile scoped to agent-browser's downloaded Chrome path. This follows [Chromium's per-path profile guidance](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md). Chrome's sandbox remains enabled. Include the same setup step when you copy this workflow to an Ubuntu runner with this restriction.
+
 ## Check your own workflow
 
 1. Add your suite to the repository.
@@ -34,6 +36,7 @@ Example job steps, after checkout and Node.js setup:
   with:
     name: browserlab-results
     path: .browserlab/ci
+    include-hidden-files: true
 ```
 
 Use the same machine class, browser versions, suite, and inputs for performance comparisons. Hosted CI machines can have different load and CPU performance. BrowserLab suppresses timing gates when recorded host metadata differs, but identical metadata does not prove identical machine conditions.

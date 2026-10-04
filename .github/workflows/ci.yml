@@ -30,6 +30,16 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx agent-browser install --with-deps
+      - name: Allow the downloaded Chrome to use its sandbox
+        run: |
+          cat <<EOF | sudo tee /etc/apparmor.d/browserlab-ci-chrome
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile browserlab-ci-chrome "$HOME/.agent-browser/browsers/**/chrome" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/browserlab-ci-chrome
       - run: npm run install:lightpanda
       - run: node dist/cli.js doctor
       - run: node dist/cli.js demo --repetitions 3 --out .browserlab/ci-reference
