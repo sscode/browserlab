@@ -27,7 +27,7 @@ The system accepts only complete result sets with expected outcomes and successf
 
 Correctness regressions include an increased unexpected-outcome rate, missing baseline cases/configurations, and cleanup failures. Current unexpected outcomes fail the CLI even when the baseline also had failures.
 
-Performance gates require at least five passing first attempts in each set by default. Both the relative and absolute thresholds must be exceeded. Host metadata differences disable the performance gate. Adapter version changes appear as warnings.
+Performance gates require at least five passing first attempts in each set by default. Both the relative and absolute thresholds must be exceeded. Host metadata differences disable the performance gate. Adapter version changes appear as warnings. Results also record whether agent-browser starts directly or through Node. A change in that launch method disables timing gates because workflow timing includes command startup. Old results with no launch field are treated as Node launches. Correctness gates remain active.
 
 The host signature cannot capture every environmental change. CPU load, thermal limits, background tasks, network conditions, and CI hardware allocation can affect results. Run controlled comparisons on the same machine. A performance gate is a heuristic, not a statistical significance test.
 

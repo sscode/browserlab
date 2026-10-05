@@ -67,7 +67,7 @@ test('Browserbase configures bounded sessions and verifies terminal release stat
     if (calls.length === 1) return reply({ id: 'session-1', connectUrl: 'wss://connect.browserbase.com?apiKey=private' });
     return reply({ status: calls.length === 2 ? 'RUNNING' : 'COMPLETED' });
   }));
-  await session.start(30000); await session.close(); await session.close();
+  await session.create(30000); await session.stop(); await session.stop();
   assert.equal(calls.length, 3);
   const body = JSON.parse(String(calls[0]!.init.body)); assert.equal(body.timeout, 60); assert.equal(body.proxies, false); assert.equal(body.keepAlive, false);
   assert.equal(JSON.parse(String(calls[1]!.init.body)).status, 'REQUEST_RELEASE');
@@ -85,16 +85,16 @@ test('Browserless uses selected region and reports failed stop requests', async 
     }
     assert.equal(init.method, 'DELETE'); return reply({ error: 'must-not-leak' }, 503);
   }));
-  await session.start(60000); await assert.rejects(session.close(), /HTTP 503/);
+  await session.create(60000); await assert.rejects(session.stop(), /HTTP 503/);
 });
 test('creation rejection is safe to close; unknown creation and malformed responses are not claimed stopped', async () => {
   const denied = new RemoteSession(bb, requestMock(() => reply({ secret: 'hidden' }, 401)));
-  await assert.rejects(denied.start(1000), /HTTP 401/); await denied.close();
+  await assert.rejects(denied.create(1000), /HTTP 401/); await denied.stop();
   const unknown = new RemoteSession(bb, requestMock(() => { throw new Error('https://secret.invalid/?token=private'); }));
-  await assert.rejects(unknown.start(1000), /API request failed/); await assert.rejects(unknown.close(), /not confirmed/);
+  await assert.rejects(unknown.create(1000), /API request failed/); await assert.rejects(unknown.stop(), /not confirmed/);
   let calls = 0;
   const malformed = new RemoteSession(bb, requestMock(() => ++calls === 1 ? reply({ id: 'known', connectUrl: 'wss://evil.example/' }) : reply({ status: 'COMPLETED' })));
-  await assert.rejects(malformed.start(1000), /Unexpected provider/); await malformed.close(); assert.equal(calls, 2);
+  await assert.rejects(malformed.create(1000), /Unexpected provider/); await malformed.stop(); assert.equal(calls, 2);
 });
 test('local environment files load credentials without echoing their contents', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'browserlab-env-'));

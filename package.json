@@ -1,6 +1,6 @@
 {
   "name": "browserlab",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Correctness and regression tests across local browsers and seven cloud browser providers.",
   "type": "module",
   "license": "MIT",

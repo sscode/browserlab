@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, accessSync, constants } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { mkdir, readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
@@ -10,11 +10,26 @@ import type { Engine, Json, Step, Target } from './types.js';
 import { RemoteSession, type StopEvidence } from './providers.js';
 
 const require = createRequire(import.meta.url);
+let installedBinary: string | undefined;
 export function binaryPath(): string {
   if (process.env.BROWSERLAB_AGENT_BROWSER) return resolve(process.env.BROWSERLAB_AGENT_BROWSER);
-  const pkg = require.resolve('agent-browser/package.json');
-  // Use the package launcher so Linux musl detection stays with the upstream tool.
-  return join(dirname(pkg), 'bin', 'agent-browser.js');
+  if (installedBinary) return installedBinary;
+  const bin = join(dirname(require.resolve('agent-browser/package.json')), 'bin');
+  const launcher = join(bin, 'agent-browser.js');
+  try {
+    // Resolve once. Keep upstream's launcher as the fallback for unusual installs.
+    let platform: string = process.platform;
+    if (platform === 'linux') {
+      const report = process.report.getReport() as { header: { glibcVersionRuntime?: string } };
+      if (!report.header.glibcVersionRuntime) platform = 'linux-musl';
+    }
+    let arch: string = process.arch;
+    const suffix = platform === 'win32' ? '.exe' : '';
+    if (platform === 'win32' && arch === 'arm64' && !existsSync(join(bin, 'agent-browser-win32-arm64.exe'))) arch = 'x64';
+    const native = join(bin, `agent-browser-${platform}-${arch}${suffix}`);
+    accessSync(native, constants.X_OK);
+    return installedBinary = native;
+  } catch { return installedBinary = launcher; }
 }
 function invocation(args: string[]): [string, string[]] {
   const path = binaryPath();

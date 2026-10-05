@@ -27,6 +27,7 @@ export async function loadRun(path: string): Promise<Run> {
   const run = JSON.parse(await readFile(path, 'utf8'));
   if (![1, 2].includes(run.version) || typeof run.id !== 'string' || !run.id || typeof run.suiteHash !== 'string' || !run.suiteHash || typeof run.suiteName !== 'string' || typeof run.createdAt !== 'string' || !Array.isArray(run.trials) || !Array.isArray(run.configurations) || !run.configurations.length || !run.host || !Array.isArray(run.testCases) || !run.testCases.length || !Number.isInteger(run.repetitions) || run.repetitions < 1 || run.repetitions > 100 || typeof run.interrupted !== 'boolean') throw new Error('Invalid BrowserLab result file');
   const statuses = ['pass', 'fail', 'error', 'timeout', 'unsupported', 'cancelled'];
+  if (run.adapterLaunch !== undefined && !['native', 'node'].includes(run.adapterLaunch)) throw new Error('Invalid adapter launch method');
   const ids = new Set<string>(), engines = new Set<string>(), trials = new Set<string>();
   for (const t of run.testCases) {
     if (!t || typeof t.id !== 'string' || ids.has(t.id) || !statuses.includes(t.expectedStatus)) throw new Error('Invalid test case manifest');
@@ -71,7 +72,9 @@ export function compareRuns(current: Run, baseline: Run, options: CompareOptions
   }
   const before = groups(baseline), after = groups(current);
   const sameHost = JSON.stringify(current.host) === JSON.stringify(baseline.host);
+  const sameLaunch = (current.adapterLaunch ?? 'node') === (baseline.adapterLaunch ?? 'node');
   if (!sameHost) finding('warning', '*', current.configurations[0]!.engine, 'Host configuration differs. Performance gates are disabled.');
+  if (!sameLaunch) finding('warning', '*', current.configurations[0]!.engine, 'Adapter launch method changed. Performance gates are disabled. Accept a new baseline to measure future timing changes.');
   if (current.adapterVersion !== baseline.adapterVersion) finding('warning', '*', current.configurations[0]!.engine, 'agent-browser version changed; this comparison includes an adapter change.');
   for (const [key, oldTrials] of before) {
     const sample = oldTrials[0]!, newTrials = after.get(key);
@@ -93,7 +96,7 @@ export function compareRuns(current: Run, baseline: Run, options: CompareOptions
       finding('warning', sample.testId, sample.engine, `Performance gate needs ${options.minSamples} passing first attempts in both runs.`, targetId(sample)); continue;
     }
     const now = median(a)!, old = median(b)!;
-    if (sameHost && now - old > options.minDeltaMs && now > old * (1 + options.maxSlowdownPct / 100)) finding('regression', sample.testId, sample.engine, `Median workflow time increased from ${Math.round(old)} ms to ${Math.round(now)} ms (limit ${options.maxSlowdownPct}%, minimum ${options.minDeltaMs} ms).`, targetId(sample));
+    if (sameHost && sameLaunch && now - old > options.minDeltaMs && now > old * (1 + options.maxSlowdownPct / 100)) finding('regression', sample.testId, sample.engine, `Median workflow time increased from ${Math.round(old)} ms to ${Math.round(now)} ms (limit ${options.maxSlowdownPct}%, minimum ${options.minDeltaMs} ms).`, targetId(sample));
   }
   return result;
 }

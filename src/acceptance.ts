@@ -23,7 +23,7 @@ export function acceptanceChecks(workflows: Run, cancelled: Run) {
     cancellationCleanup: confirmed(cancelled),
   };
 }
-export async function acceptProviders(targets: Target[], fixtureUrl: string, out: string, signal?: AbortSignal) {
+export async function acceptProviders(targets: Target[], fixtureUrl: string, out: string, signal?: AbortSignal, html = false) {
   if (!targets.length || targets.some(t => t.provider === 'local')) throw new Error('Provider acceptance requires explicit hosted targets');
   const base = hostedDemoSuite(fixtureUrl, 1);
   const { engines: _engines, version: _version, ...common } = base;
@@ -39,7 +39,7 @@ export async function acceptProviders(targets: Target[], fixtureUrl: string, out
       if (signal?.aborted) break;
       const dir = join(out, target.id);
       const workflows = await runSuite({ ...suite, targets: [target] }, { out: join(dir, 'workflows'), signal });
-      await writeReports(workflows, join(dir, 'workflows'));
+      await writeReports(workflows, join(dir, 'workflows'), undefined, html);
       if (signal?.aborted) break;
       const abort = new AbortController();
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -50,7 +50,7 @@ export async function acceptProviders(targets: Target[], fixtureUrl: string, out
           onStep: (_test, _target, index) => { if (index === 0) timer = setTimeout(() => abort.abort(), 250); },
         });
       } finally { clearTimeout(timer); }
-      await writeReports(cancelled, join(dir, 'cancellation'));
+      await writeReports(cancelled, join(dir, 'cancellation'), undefined, html);
       const checks = acceptanceChecks(workflows, cancelled);
       summary.push({ targetId: target.id, passed: Object.values(checks).every(Boolean), checks });
       await atomicJson(join(out, 'acceptance.json'), { version: 1, createdAt: new Date().toISOString(), fixtureUrl, results: summary });

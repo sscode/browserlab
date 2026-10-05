@@ -6,18 +6,12 @@ import type { Target } from './types.js';
 
 export interface SessionInspection { state: 'active' | 'stopped' | 'unknown'; browserVersion?: string }
 export type StopEvidence = 'provider-confirmed' | 'cdp-confirmed' | 'not-created';
-export interface ProviderSession {
-  create(timeoutMs: number, signal?: AbortSignal): Promise<void>;
-  connect(): string;
-  inspect(signal?: AbortSignal): Promise<SessionInspection>;
-  stop(): Promise<StopEvidence>;
-}
 type Data = Record<string, any>;
 
 /** Own the lifecycle, including provider-specific evidence of release. Never
  * retry session creation: a lost response can still leave a billable browser.
  */
-export class RemoteSession implements ProviderSession {
+export class RemoteSession {
   id?: string;
   connectUrl?: string;
   readonly secrets: string[] = [];
@@ -114,7 +108,6 @@ export class RemoteSession implements ProviderSession {
     const url = urls[this.target.provider]!; this.connectUrl = this.checkUrl(url.value, 'wss:', url.domains);
   }
   connect() { if (!this.connectUrl || this.stopped) throw new Error('Session is not ready to connect'); return this.connectUrl; }
-  async start(timeoutMs: number, signal?: AbortSignal) { await this.create(timeoutMs, signal); return this.connect(); }
   private checkUrl(value: unknown, protocol: string, domains: string[]) {
     if (typeof value !== 'string') throw new ProcessFailure(`${this.target.provider} response is missing a session URL`);
     this.remember(value);
@@ -165,5 +158,4 @@ export class RemoteSession implements ProviderSession {
     }
     throw new Error(`${this.target.provider} session stop was not confirmed`);
   }
-  async close() { return this.stop(); }
 }

@@ -41,7 +41,7 @@ test('acceptance saves independent workflow/cancellation reports and refuses reu
     assert.equal(summary.complete, true); assert.equal(summary.passed, true);
     const cancellation = JSON.parse(await readFile(join(out, 'browserbase/cancellation/results.json'), 'utf8'));
     assert.equal(cancellation.trials[0].status, 'cancelled'); assert.equal(cancellation.trials[0].failurePhase, 'workflow');
-    assert.ok(!(await readFile(join(out, 'browserbase/workflows/report.html'), 'utf8')).includes(process.env.BROWSERBASE_API_KEY));
+    assert.ok(!(await readFile(join(out, 'browserbase/workflows/junit.xml'), 'utf8')).includes(process.env.BROWSERBASE_API_KEY));
     await assert.rejects(acceptProviders(selectTargets('browserbase'), 'https://fixture.example/', out), /already exists/);
     failCleanup = true;
     assert.equal(await acceptProviders(selectTargets('browserbase'), 'https://fixture.example/', join(dir, 'fail')), false);

@@ -7,12 +7,61 @@ import { compareRuns, defaultCompare, median, percentile, runPassed } from '../c
 import { descendants, parseProcessRows, execute, ProcessFailure } from '../process.js';
 import { renderReport, junit } from '../report.js';
 import { redact } from '../runner.js';
+import { binaryPath } from '../adapter.js';
+import { trialLine, summary } from '../terminal.js';
 import type { Run, Trial } from '../types.js';
 
 export function sampleRun(): Run {
   const trial: Trial = { id: 'trial', testId: 'catalog', testName: 'Catalog', engine: 'chrome', repetition: 0, attempt: 0, expectedStatus: 'pass', status: 'pass', matchedExpectation: true, startedAt: '2026-01-01', durationMs: 200, startupMs: 100, workflowMs: 100, peakRssKb: null, cpuMs: null, measurementMethod: 'Unavailable', steps: [], assertions: [], output: { items: ['one'] }, artifacts: [] };
   return { version: 1, id: 'run', suiteName: 'Test', suiteHash: 'same', createdAt: '2026-01-01', configurations: [{ engine: 'chrome', version: '1' }], host: { platform: 'linux', arch: 'x64', release: '1', cpus: 2, memoryBytes: 100, node: '24' }, adapterVersion: '1', repetitions: 5, testCases: [{ id: 'catalog', expectedStatus: 'pass' }], interrupted: false, trials: Array.from({ length: 5 }, (_, repetition) => ({ ...structuredClone(trial), id: String(repetition), repetition })) };
 }
+
+test('terminal output shows failures, cleanup, incomplete runs and baseline findings safely', () => {
+  const run = sampleRun();
+  assert.match(summary(run), /^PASS\nTrials: 5\/5/);
+  const trial = run.trials[0]!;
+  trial.status = 'fail'; trial.matchedExpectation = false;
+  trial.assertions = [{ path: '/name', op: 'equals', passed: false, message: 'Expected Field equipment' }];
+  trial.cleanupError = 'Session still active\x1b[2J';
+  assert.match(trialLine(trial), /FAIL chrome/);
+  assert.match(trialLine(trial), /\/name: Expected Field equipment/);
+  assert.match(trialLine(trial), /Cleanup: Session still active/);
+  assert.ok(!trialLine(trial).includes('\x1b'));
+  assert.match(summary(run), /^FAIL/);
+  run.trials = run.trials.slice(1);
+  assert.match(summary(run), /^FAIL\nTrials: 4\/5/);
+  run.interrupted = true;
+  assert.match(summary(run), /^CANCELLED/);
+  assert.match(summary(sampleRun(), { baselineId: 'old', compatible: true, findings: [{ severity: 'regression', testId: 'catalog', engine: 'chrome', message: 'Too slow' }] }), /^FAIL[\s\S]*REGRESSION catalog\/chrome: Too slow/);
+});
+
+test('native adapter resolution keeps explicit executable overrides', () => {
+  const old = process.env.BROWSERLAB_AGENT_BROWSER;
+  try {
+    delete process.env.BROWSERLAB_AGENT_BROWSER;
+    const installed = binaryPath();
+    assert.match(installed, /agent-browser/);
+    process.env.BROWSERLAB_AGENT_BROWSER = '/tmp/custom-adapter.js';
+    assert.equal(binaryPath(), '/tmp/custom-adapter.js');
+    delete process.env.BROWSERLAB_AGENT_BROWSER;
+    assert.equal(binaryPath(), installed);
+  } finally {
+    if (old === undefined) delete process.env.BROWSERLAB_AGENT_BROWSER;
+    else process.env.BROWSERLAB_AGENT_BROWSER = old;
+  }
+});
+
+test('changing the adapter launcher disables timing gates but preserves correctness checks', () => {
+  const base = sampleRun(), current = sampleRun();
+  current.adapterLaunch = 'native';
+  current.trials.forEach(t => t.workflowMs = 10000);
+  const comparison = compareRuns(current, base);
+  assert.match(comparison.findings[0]!.message, /Adapter launch method changed/);
+  assert.ok(!comparison.findings.some(f => f.severity === 'regression'));
+  current.trials[0]!.matchedExpectation = false;
+  current.trials[0]!.status = 'fail';
+  assert.ok(compareRuns(current, base).findings.some(f => f.severity === 'regression'));
+});
 
 test('the controlled suite contains 20 validated cases with explicit negative expectations', () => {
   const suite = validateSuite(demoSuite('http://127.0.0.1:3000'));

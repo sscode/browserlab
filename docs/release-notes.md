@@ -1,6 +1,16 @@
-# BrowserLab 0.3.0 alpha
+# BrowserLab 0.4.0 alpha
 
-This open-source alpha adds hosted browser targets. The CLI runs on macOS and Linux and targets read-only browser workflows.
+This open-source alpha makes the terminal the main interface and removes repeated Node launcher startup from browser commands. The CLI runs on macOS and Linux and targets read-only browser workflows.
+
+## Terminal and launch speed
+
+Runs print trial results, failed assertions, cleanup errors, a target summary, and baseline findings. HTML is now optional: add `--html`, or use `browserlab report <results.json>`. JSON and JUnit remain automatic. Scripts that require `report.html` must add `--html`.
+
+The adapter resolves the installed native agent-browser executable once. It retains the upstream launcher for unsupported layouts or executables that are not ready to run. The explicit `BROWSERLAB_AGENT_BROWSER` override still works. Help and version skip execution module loading.
+
+Results record the adapter launch method. When it differs from the baseline, correctness checks remain active but timing gates are disabled. Accept a new baseline after upgrading to measure future timing changes.
+
+Node 24 remains the runtime. A scriptc 0.2.2 coverage check found blockers in WebSocket and file APIs. Adding compatibility code would oppose this release's aim of a small, simple CLI.
 
 ## Provider support
 
@@ -38,7 +48,7 @@ Customer adoption has not been validated. Reference-suite success does not prove
 mkdir browserlab-pilot
 cd browserlab-pilot
 npm init -y
-npm install /absolute/path/to/browserlab-0.3.0.tgz
+npm install /absolute/path/to/browserlab-0.4.0.tgz
 npx agent-browser install
 node node_modules/browserlab/scripts/install-lightpanda.mjs 1.0.0
 npx browserlab doctor

@@ -36,7 +36,7 @@ export interface Run {
   version: 1 | 2; id: string; suiteName: string; suiteHash: string; createdAt: string;
   configurations: { id?: string; provider?: Provider; engine: Engine; region?: string; version: string | null; proxy?: false | 'provider-managed'; stealth?: false | 'provider-managed'; settingsVersion?: number; regionPolicy?: 'requested' | 'local' | 'provider-managed'; sessionTimeout?: 'local' | 'requested' | 'client-only' }[];
   host: { platform: string; arch: string; release: string; cpus: number; memoryBytes: number; node: string };
-  adapterVersion: string; repetitions: number; trials: Trial[]; interrupted: boolean;
+  adapterVersion: string; adapterLaunch?: 'native' | 'node'; repetitions: number; trials: Trial[]; interrupted: boolean;
   testCases: { id: string; expectedStatus: Status }[];
 }
 export interface Finding { severity: 'regression' | 'warning'; testId: string; engine: Engine; targetId?: string; message: string }

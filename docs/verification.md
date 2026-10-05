@@ -88,3 +88,29 @@ The first Linux run exposed Ubuntu's restriction on user namespaces for download
 These missing items prevent a claim that all three business stages are complete. Local engineering tests do not replace customer evidence.
 
 Local `.browserlab` files are intentionally excluded from source control. They can be regenerated with the documented commands. Do not present this record as a cross-platform certification or a universal compatibility benchmark.
+
+
+## Terminal release (0.4.0)
+
+The terminal is the default result interface. HTML requires `--html` or a later `report` command. JSON and JUnit are still written on each completed or cancelled execution.
+
+A scriptc 0.2.2 coverage probe against the 0.3.0 CLI analyzed 979 statements and reported 929 as static (94%). It also reported blocking operations, including WebSocket construction/events, `fs/promises.mkdtemp`, exclusive file writes, and `util.isDeepStrictEqual`. A high static percentage does not mean the app builds. The compiler was installed in a temporary probe directory; it is not a project dependency. See [scriptc limitations](https://scriptc.dev/docs/limitations).
+
+The native launch path uses agent-browser's existing executable. It avoids starting a Node wrapper for each command. Missing or non-executable native binaries fall back to the upstream launcher. Explicit executable overrides remain supported.
+
+Measurements on this Mac, with agent-browser 0.38.2:
+
+| Measurement | Node wrapper | Native launch |
+| --- | ---: | ---: |
+| Adapter `--version`, median of 30 measured launches after 3 warm-ups | 48.36 ms | 2.67 ms |
+| Local heading check on both engines, full run median | 1,524 ms | 968 ms |
+| Chrome workflow median, open + extract | 124 ms | 37 ms |
+| Lightpanda workflow median, open + extract | 105 ms | 14 ms |
+
+The paired workflow experiment used five measured pairs after one discarded warm-up pair. Mode order alternated. Both modes used the same local fixture, assertions, process sampling, and fresh browser sessions. Full run time includes startup, workflow, cleanup, and JSON writes. It excludes CLI startup and report rendering. All 24 trials, including warm-ups, passed. This is about 36% less wall time for this small workload, not a claim about arbitrary pages or cloud providers. Evidence: `.browserlab/launch-benchmark-1791161482474/summary.json`.
+
+Help startup measured approximately 50 ms after lazy loading, versus 77 ms before (30 samples after 3 warm-ups). These sequential local timings are illustrative; machine load can change them.
+
+Real-engine integration passed: terminal summaries, no HTML by default, later HTML export, page regression and JUnit, screenshots, secret redaction with HTML enabled, SIGINT cleanup, private CDP attachment, and bridge close confirmation. Evidence: `.browserlab/integration-1791161446800/`.
+
+Final local checks: 49 unit/process/protocol tests passed; type checks passed; the full reference demo matched all 40 expected outcomes with zero cleanup errors (`.browserlab/terminal-04-smoke/results.json`). Live cloud acceptance is still pending user-supplied credentials.

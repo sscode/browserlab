@@ -1,7 +1,7 @@
 import { CdpBridge } from '../cdp-bridge.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { startFixtures, demoSuite } from '../fixtures.js';
 import { loadRun } from '../compare.js';
@@ -31,10 +31,18 @@ async function suiteFile(name: string, suite: Suite) {
 try {
   const base = demoSuite(fixture.url, 1); base.tests = base.tests.slice(0, 1);
   const file = await suiteFile('workflow', base);
-  await cli(['run', file, '--out', join(root, 'before')], 0);
+  const terminal = await cli(['run', file, '--out', join(root, 'before')], 0);
+  assert.match(terminal, /Trials: 2\/2 first attempts/);
+  assert.match(terminal, /Cleanup failures/);
+  await assert.rejects(access(join(root, 'before/report.html')));
+  assert.equal((await loadRun(join(root, 'before/results.json'))).adapterLaunch, 'native');
+  await cli(['report', join(root, 'before/results.json')], 0);
+  assert.match(await readFile(join(root, 'before/report.html'), 'utf8'), /BrowserLab/);
   await cli(['baseline', 'accept', join(root, 'before/results.json'), '--out', join(root, 'accepted')], 0);
   fixture.setRegression(true);
-  await cli(['run', file, '--baseline', join(root, 'accepted/baseline.json'), '--out', join(root, 'broken')], 1);
+  const failure = await cli(['run', file, '--baseline', join(root, 'accepted/baseline.json'), '--out', join(root, 'broken')], 1);
+  assert.match(failure, /REGRESSION/);
+  assert.match(failure, /FAIL chrome/);
   const broken = await loadRun(join(root, 'broken/results.json'));
   assert.ok(broken.trials.every(t => t.status === 'fail' && !t.matchedExpectation));
   const junit = await readFile(join(root, 'broken/junit.xml'), 'utf8');
@@ -60,7 +68,7 @@ try {
   secrets.tests[0]!.steps[1] = { action: 'fill', selector: '#query', env: 'BROWSERLAB_TEST_SECRET' };
   secrets.tests[0]!.assertions = [{ path: '/value', op: 'required' }];
   const secretFile = await suiteFile('secrets', secrets);
-  await cli(['run', secretFile, '--out', join(root, 'secrets')], 0, undefined, { BROWSERLAB_TEST_SECRET: secret });
+  await cli(['run', secretFile, '--html', '--out', join(root, 'secrets')], 0, undefined, { BROWSERLAB_TEST_SECRET: secret });
   for (const name of ['results.json', 'report.html', 'junit.xml']) assert.ok(!(await readFile(join(root, 'secrets', name), 'utf8')).includes(secret));
   console.log('✓ Environment-based fill works and secret values stay out of reports');
 

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { arch, cpus, platform, release, totalmem } from 'node:os';
 import { join } from 'node:path';
 import { mkdir, writeFile, rename, open, rm, access } from 'node:fs/promises';
-import { AgentBrowser, adapterVersion, createConfig } from './adapter.js';
+import { AgentBrowser, adapterVersion, binaryPath, createConfig } from './adapter.js';
 import { evaluate } from './assertions.js';
 import { hashSuite } from './schema.js';
 import { Sampler, ProcessFailure } from './process.js';
@@ -42,7 +42,7 @@ async function runSuiteUnlocked(suite: Suite, options: RunOptions): Promise<Run>
     version: 2, id: randomUUID(), suiteName: suite.name, suiteHash: options.contractHash ?? hashSuite(suite), createdAt: new Date().toISOString(),
     configurations: suiteTargets(suite).map(target => ({ ...target, ...providerSettings(target), version: null })),
     host: { platform: platform(), arch: arch(), release: release(), cpus: cpus().length, memoryBytes: totalmem(), node: process.version },
-    adapterVersion: await adapterVersion(), repetitions: suite.repetitions, trials: [], interrupted: false,
+    adapterVersion: await adapterVersion(), adapterLaunch: binaryPath().endsWith('.js') ? 'node' : 'native', repetitions: suite.repetitions, trials: [], interrupted: false,
     testCases: suite.tests.map(t => ({ id: t.id, expectedStatus: t.expectedStatus ?? 'pass' })),
   };
   const secrets = [...credentialValues(), ...suite.tests.flatMap(t => t.steps.flatMap(s => s.action === 'fill' && s.env && process.env[s.env] ? [process.env[s.env]!] : []))];

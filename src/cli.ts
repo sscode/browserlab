@@ -1,21 +1,13 @@
 #!/usr/bin/env node
-import { acceptProviders } from './acceptance.js';
 import { loadEnvFile } from 'node:process';
-import { suiteTargets, selectTargets, requireCredentials, credentialValues, targetId } from './targets.js';
-import { redact } from './runner.js';
+import { suiteTargets, selectTargets, requireCredentials, credentialValues } from './targets.js';
 import { parseArgs } from 'node:util';
 import { resolve, join, dirname } from 'node:path';
 import { mkdir, access, copyFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { loadSuite, selectEngines, hashSuite, validateSuite } from './schema.js';
-import { runSuite, atomicJson } from './runner.js';
-import { compareRuns, defaultCompare, loadRun, runPassed } from './compare.js';
-import { writeReports } from './report.js';
-import { demoSuite, hostedDemoSuite, startFixtures } from './fixtures.js';
-import { AgentBrowser, checkInstall, createConfig } from './adapter.js';
-import type { Comparison, Run, Suite } from './types.js';
+import type { Comparison, Suite } from './types.js';
 
-const help = `BrowserLab 0.3.0 — browser correctness and regression checks
+const help = `BrowserLab 0.4.0 — browser correctness and regression checks
 
 Usage:
   browserlab init [suite.json]             Create a portable starter suite
@@ -34,7 +26,8 @@ Options:
   --env-file FILE              Load local credentials (existing environment wins)
   --fixture-url HTTPS_URL      Use hosted reference pages with demo or accept
   --repetitions N              Override repetitions (1–100)
-  --out DIRECTORY             Report directory (must not contain results.json)
+  --html                      Also write an offline HTML report
+  --out DIRECTORY             Results directory (must not contain results.json)
   --baseline FILE             Compare after execution; fail on regressions
   --min-samples N             Passing first attempts for timing gate (default 5)
   --max-slowdown N            Maximum median slowdown percent (default 25)
@@ -56,16 +49,22 @@ function numeric(value: string | undefined, fallback: number, min: number, max: 
 async function main() {
   const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
     'env-file': { type: 'string' }, 'fixture-url': { type: 'string' }, targets: { type: 'string' },
-    help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' }, engines: { type: 'string' }, repetitions: { type: 'string' }, out: { type: 'string' }, baseline: { type: 'string' },
+    html: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' }, engines: { type: 'string' }, repetitions: { type: 'string' }, out: { type: 'string' }, baseline: { type: 'string' },
     'min-samples': { type: 'string' }, 'max-slowdown': { type: 'string' }, 'min-delta': { type: 'string' },
   } });
   if (flags['env-file']) loadEnvFile(resolve(flags['env-file']));
   if (flags.targets && flags.engines) throw new Error('Use either --targets or --engines');
-  if (flags.version) { console.log('0.3.0'); return; }
+  if (flags.version) { console.log('0.4.0'); return; }
   if (flags.help || !positionals.length) { console.log(help); return; }
   const [command, ...args] = positionals;
   const maxArgs: Record<string, number> = { init: 1, doctor: 0, demo: 0, fixtures: 0, accept: 0, run: 1, baseline: 2, compare: 2, report: 1 };
   if (!(command! in maxArgs) || args.length > maxArgs[command!]!) throw new Error('Unknown command or extra arguments. Use --help.');
+  const { runSuite, atomicJson, redact } = await import('./runner.js');
+  const { trialLine, summary } = await import('./terminal.js');
+  const { demoSuite, hostedDemoSuite, startFixtures } = await import('./fixtures.js');
+  const { writeReports } = await import('./report.js');
+  const { compareRuns, defaultCompare, loadRun, runPassed } = await import('./compare.js');
+  const { loadSuite, selectEngines, hashSuite, validateSuite } = await import('./schema.js');
   const engines = flags.engines ? selectEngines(flags.engines) : undefined;
   const compareOptions = {
     minSamples: numeric(flags['min-samples'], defaultCompare.minSamples, 3, 100),
@@ -94,6 +93,7 @@ async function main() {
     return;
   }
   if (command === 'doctor') {
+    const { AgentBrowser, checkInstall, createConfig } = await import('./adapter.js');
     const targets = flags.targets ? selectTargets(flags.targets) : (engines ?? ['chrome', 'lightpanda']).map(engine => ({ id: engine, provider: 'local' as const, engine: engine as 'chrome' | 'lightpanda' }));
     requireCredentials(targets);
     const install = await checkInstall(); console.log(`Adapter: ${install.version} (package ${install.pinned})`);
@@ -132,9 +132,11 @@ async function main() {
         await copyFile(join(dirname(resolve(args[0])), path), destination);
       }
     }
-    await writeReports(run, dir, comparison);
-    if (comparison) { await atomicJson(join(dir, 'comparison.json'), comparison); for (const f of comparison.findings) console.log(`${f.severity}: ${f.testId}/${f.targetId ?? f.engine}: ${f.message}`); }
-    console.log(`Report: ${join(dir, 'report.html')}`);
+    await writeReports(run, dir, comparison, command === 'report' || Boolean(flags.html));
+    if (comparison) await atomicJson(join(dir, 'comparison.json'), comparison);
+    console.log(summary(run, comparison));
+    if (command === 'report' || flags.html) console.log(`Report: ${join(dir, 'report.html')}`);
+    console.log(`Results: ${join(dir, 'results.json')}`);
     process.exitCode = runPassed(run) && !comparison?.findings.some(f => f.severity === 'regression') ? 0 : 1; return;
   }
   if (command === 'run' && !args[0]) throw new Error('A suite file is required');
@@ -149,7 +151,8 @@ async function main() {
     if (command === 'demo' && !flags['fixture-url']) fixture = await startFixtures();
     if (command === 'accept') {
       if (!flags.targets || !flags['fixture-url']) throw new Error('Use accept --targets LIST --fixture-url HTTPS_URL --env-file .env');
-      const passed = await acceptProviders(selectTargets(flags.targets), flags['fixture-url'], out, abort.signal);
+      const { acceptProviders } = await import('./acceptance.js');
+      const passed = await acceptProviders(selectTargets(flags.targets), flags['fixture-url'], out, abort.signal, flags.html);
       console.log(`Acceptance evidence: ${out}`); process.exitCode = abort.signal.aborted ? 130 : passed ? 0 : 1; return;
     }
     let suite: Suite = command === 'demo' ? (flags['fixture-url'] ? hostedDemoSuite(flags['fixture-url']) : demoSuite(fixture!.url)) : await loadSuite(args[0]!);
@@ -160,15 +163,16 @@ async function main() {
     suite = validateSuite(suite);
     console.log(`BrowserLab · ${suite.name}\n${suite.tests.length} cases × ${suiteTargets(suite).length} targets × ${suite.repetitions} repetitions\n`);
     const run = await runSuite(suite, { out, signal: abort.signal, contractHash: fixture ? hashSuite(demoSuite('http://fixture.browserlab', suite.repetitions)) : undefined,
-      onTrial: t => console.log(`${t.matchedExpectation ? '✓' : '✕'} ${targetId(t).padEnd(12)} ${t.testId.padEnd(18)} ${t.status.padEnd(11)} ${Math.round(t.workflowMs)} ms${t.expectedStatus !== 'pass' ? ` (expected ${t.expectedStatus})` : ''}${t.attempt ? ` retry ${t.attempt}` : ''}`),
+      onTrial: t => console.log(trialLine(t)),
     });
     let comparison: Comparison | undefined;
     if (baseline) { comparison = compareRuns(run, baseline, compareOptions); await atomicJson(join(out, 'comparison.json'), comparison); }
-    await writeReports(run, out, comparison);
-    console.log(`\nReport: ${join(out, 'report.html')}\nResults: ${join(out, 'results.json')}`);
+    await writeReports(run, out, comparison, flags.html ?? false);
+    console.log(`\n${summary(run, comparison)}\n\nResults: ${join(out, 'results.json')}\nJUnit: ${join(out, 'junit.xml')}`);
+    if (flags.html) console.log(`Report: ${join(out, 'report.html')}`);
     process.exitCode = run.interrupted ? 130 : runPassed(run) && !comparison?.findings.some(f => f.severity === 'regression') ? 0 : 1;
   } finally {
     await fixture?.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel);
   }
 }
-main().catch(error => { console.error(redact(`BrowserLab: ${error instanceof Error ? error.message : error}`, credentialValues())); process.exitCode = 2; });
+main().catch(async error => { const { redact } = await import('./runner.js'); console.error(redact(`BrowserLab: ${error instanceof Error ? error.message : error}`, credentialValues())); process.exitCode = 2; });

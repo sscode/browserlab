@@ -2,7 +2,7 @@
 
 **Check browser workflows before you release. Compare local browsers and seven cloud browser providers with the same correctness requirements.**
 
-BrowserLab is an open-source CLI. It executes workflows on selected local or hosted browsers, evaluates assertions, compares repeated trials, and creates an offline HTML report. Local runs need no account or model API key. Hosted targets need a provider account and key. No result upload is required.
+BrowserLab is an open-source CLI. It executes workflows on selected local or hosted browsers, evaluates assertions, compares repeated trials, and shows results in the terminal. HTML export is optional. Local runs need no account or model API key. Hosted targets need a provider account and key. No result upload is required.
 
 **Status: early alpha.** The adapters use agent-browser 0.38.2. Local Chrome and Lightpanda have real-engine verification. Browserbase, Browserless, Steel, Browser Use Cloud, Bright Data, Hyperbrowser, and Anchor have protocol tests; live provider verification remains pending. This project is independent of those products. Start with read-only workflows and controlled test sites.
 
@@ -23,7 +23,7 @@ node dist/cli.js doctor
 node dist/cli.js demo --repetitions 1
 ```
 
-Open the `report.html` path printed by the command. The demo starts its own local website and closes it afterward. It includes 20 cases and needs no external website.
+Read the result in the terminal. Use `--html` to also create an offline report, or run `browserlab report <results.json>` later. The demo starts its own local website and closes it afterward. It includes 20 cases and needs no external website.
 
 Fourteen cases expect correct extraction. Four cases expect an assertion failure. One expects a selector error. One expects a timeout. The report preserves these actual statuses. An expected negative result does not count as a successful data extraction.
 
@@ -98,16 +98,18 @@ A change to the test contract requires a reviewed new baseline. Different host c
 ```sh
 browserlab compare .browserlab/after/results.json baselines/catalog-v1/baseline.json
 browserlab report .browserlab/after/results.json
+# Include baseline findings in an HTML export:
+browserlab compare .browserlab/after/results.json baselines/catalog-v1/baseline.json --html
 ```
 
 Baselines never overwrite an existing baseline file. Keep accepted baselines in version control after checking them for sensitive data.
 
 ## Reports and CI
 
-Each execution produces:
+Each execution prints trial outcomes, failure details, a target summary, and baseline findings. It also saves:
 
 - `results.json`: measurements, outputs, assertions, and configuration metadata.
-- `report.html`: a searchable offline report with engine and failure filters.
+- `report.html`: an optional offline report. Use `--html` with `run`, `demo`, `compare`, or `accept`, or use the `report` command.
 - `junit.xml`: test outcomes and baseline regressions for CI.
 - `comparison.json`: baseline findings, when a baseline was supplied.
 - `artifacts/`: screenshots only when the suite requests them.
@@ -118,7 +120,7 @@ Use the [CI example](docs/ci.md). The [repository workflow](.github/workflows/ci
 
 ## What the measurements mean
 
-Workflow time includes browser command transport and explicit waits. Browser startup has a separate measurement. Statistics use passing first attempts; a successful retry does not erase the original failure.
+Workflow time includes browser command transport and explicit waits. BrowserLab calls the installed native agent-browser executable directly when it is available. It keeps the upstream Node launcher as a fallback. Results record this choice; changing the launch method disables timing gates until you accept a new baseline. Browser startup has a separate measurement. Statistics use passing first attempts; a successful retry does not erase the original failure.
 
 On macOS and Linux, the runner samples the session daemon and its browser descendants using `ps`. RSS can double-count shared pages. Sampling can miss short peaks. CPU is a sampled lower bound. Unavailable values remain `null`. See [methodology](docs/methodology.md).
 
