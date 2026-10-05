@@ -51,6 +51,25 @@ The Browserbase and Browserless additions were checked on the same macOS host. N
 
 Actual Browserbase and Browserless acceptance remains pending. Users store their keys locally and run the checks described in [provider setup](providers.md). Protocol mocks and a local CDP connection do not prove live account compatibility, remote cleanup, or provider performance.
 
+## Version 0.3.0 provider expansion
+
+Date: 2026-10-04. This version adds Steel, Browser Use Cloud, Bright Data Browser API, Hyperbrowser, and Anchor. It also adds the shared session lifecycle and the `accept` command.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Unit, process, and protocol tests | 46 passed | `npm test` |
+| Types and diff whitespace | Passed | `npm run check`, `git diff --check` |
+| New REST contracts | Create, connection, inspection, stop, and failure cases passed with simulated responses | `src/test/provider-expansion.test.ts` |
+| Bright Data connection mechanism | Mock server checks authentication isolation, CDP message routing, access controls, and close acknowledgement | WebSocket protocol tests |
+| Real browser integration | All six sections passed, including Chrome through the private WebSocket bridge | `.browserlab/integration-1791160681613/` |
+| Local reference suite | 40/40 declared outcomes matched | `.browserlab/providers-seven-smoke/results.json` |
+| Acceptance workflow | Successful extraction, negative cases, cancellation, failed cleanup, and output reuse tested with a mock adapter | `src/test/acceptance.test.ts` |
+| Missing keys | All seven preflights and the acceptance command reject missing credentials | CLI checks |
+| Clean archive install | Version 0.3.0 CLI loaded successfully with the WebSocket dependency | `/tmp/browserlab-package-03` |
+| Archive contents | Credential template included; keys, run data, and development tests excluded | `npm pack` manifest |
+
+Live cloud acceptance is **not complete**. No provider keys or local `.env` were available. The acceptance command requires locally supplied keys and a controlled HTTPS fixture host. No cloud sessions were created during this verification. A local Chrome bridge test proves the connection mechanism, not Bright Data's production behavior or billing.
+
 ## Installer observation
 
 A fresh engine re-download exceeded the initial three-minute limit. The installer now streams downloads, shows progress, permits ten minutes, and reuses only a binary that matches the publisher's checksum.

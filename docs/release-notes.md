@@ -1,12 +1,14 @@
-# BrowserLab 0.2.0 alpha
+# BrowserLab 0.3.0 alpha
 
 This open-source alpha adds hosted browser targets. The CLI runs on macOS and Linux and targets read-only browser workflows.
 
 ## Provider support
 
-This alpha adds Browserbase and Browserless, version 2 target configurations, local environment-file loading, and exported remote test fixtures. Local suites and old results remain supported. Remote session stop failures fail the run. Cloud CPU, memory, and costs remain unavailable.
+This alpha adds Steel, Browser Use Cloud, Bright Data Browser API, Hyperbrowser, and Anchor. It retains Browserbase and Browserless. Each adapter exposes create, connect, inspect, and stop operations. Results record provider-managed settings and distinguish API-confirmed cleanup from a CDP close acknowledgement.
 
-Provider API behavior is covered by protocol tests. Live cloud acceptance is pending user-supplied credentials. See [provider setup](providers.md).
+The new `accept` command checks live extraction, deliberate failures, timeout, cancellation, and cleanup against hosted reference pages. Users supply their own local credentials. Provider protocols and the acceptance procedure have mock tests; real Chrome verifies private CDP attachment and the Bright Data connection bridge. Live cloud acceptance remains pending. See [provider setup](providers.md).
+
+Hosted baselines from version 0.2 need renewed acceptance because version 0.3 records explicit provider settings. Existing local suites and results remain supported.
 
 ## Included
 
@@ -36,7 +38,7 @@ Customer adoption has not been validated. Reference-suite success does not prove
 mkdir browserlab-pilot
 cd browserlab-pilot
 npm init -y
-npm install /absolute/path/to/browserlab-0.2.0.tgz
+npm install /absolute/path/to/browserlab-0.3.0.tgz
 npx agent-browser install
 node node_modules/browserlab/scripts/install-lightpanda.mjs 1.0.0
 npx browserlab doctor

@@ -1,3 +1,4 @@
+import { CdpBridge } from '../cdp-bridge.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -91,5 +92,24 @@ try {
     assert.equal((await owner.command(['eval', 'document.querySelector("h1").textContent'])).result, 'Field equipment');
     console.log('✓ Private CDP configuration connects to an existing browser and detaches cleanly');
   } finally { if (attached) await attached.close(); await owner.close(); }
+  const bridgeOwner = new AgentBrowser('chrome', `bridge-owner-${Date.now()}`, config);
+  const bridge = new CdpBridge();
+  let bridgeClient: AgentBrowser | undefined;
+  try {
+    await bridgeOwner.start(15000);
+    const endpoint = await bridgeOwner.command(['get', 'cdp-url']);
+    await bridge.create(String(endpoint.cdpUrl), {}, 10000, 60000);
+    const bridgeConfig = join(root, 'cdp', 'bridge.json');
+    await writeFile(bridgeConfig, JSON.stringify({ cdp: bridge.url }), { mode: 0o600 });
+    bridgeClient = new AgentBrowser('chrome', `bridge-client-${Date.now()}`, bridgeConfig);
+    await bridgeClient.start(15000);
+    await bridgeClient.command(['open', fixture.url]);
+    assert.equal((await bridgeClient.command(['eval', 'document.querySelector("h1").textContent'])).result, 'Field equipment');
+    assert.match((await bridge.inspect()).browserVersion!, /^Chrome\//);
+    await bridgeClient.close(); bridgeClient = undefined;
+    assert.equal((await bridge.inspect()).state, 'active');
+    await bridge.stop(); assert.equal(bridge.closeConfirmed, true);
+    console.log('✓ Private WebSocket bridge drives real Chrome, detaches, and confirms Browser.close');
+  } finally { if (bridgeClient) await bridgeClient.close(); await bridge.stop().catch(() => {}); await bridgeOwner.close(); }
   console.log(`Integration evidence: ${root}`);
 } finally { await fixture.close(); }

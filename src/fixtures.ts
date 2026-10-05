@@ -60,3 +60,13 @@ export function demoSuite(baseUrl: string, repetitions = 3): LegacySuite {
   add('timeout', 'Stop a wait at the trial time limit', [{ action: 'wait', selector: '#never-appears' }], [], { expectedStatus: 'timeout', timeoutMs: 3000 });
   return { version: 1, name: 'Controlled browser compatibility suite', engines: ['chrome', 'lightpanda'], repetitions, timeoutMs: 15000, tests };
 }
+
+export function hostedDemoSuite(baseUrl: string, repetitions = 3): LegacySuite {
+  const url = new URL(baseUrl);
+  if (url.search || url.hash || url.username || url.password || !['http:', 'https:'].includes(url.protocol)) throw new Error('Fixture URL must be HTTP(S), with no credentials, query, or fragment');
+  const suite = demoSuite(url.href.endsWith('/') ? url.href : url.href + '/', repetitions);
+  suite.tests.find(t => t.id === 'timeout')!.timeoutMs = 30000;
+  suite.tests.find(t => t.id === 'attribute')!.assertions[0]!.value = './next/';
+  suite.timeoutMs = 60000;
+  return suite;
+}

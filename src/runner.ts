@@ -1,3 +1,4 @@
+import { providerSettings } from './provider-config.js';
 import { randomUUID } from 'node:crypto';
 import { arch, cpus, platform, release, totalmem } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +10,7 @@ import { Sampler, ProcessFailure } from './process.js';
 import { suiteTargets, requireCredentials, remoteUrlCheck, credentialValues } from './targets.js';
 import type { Target, Run, Suite, TestCase, Trial } from './types.js';
 
-export interface RunOptions { out: string; signal?: AbortSignal; onTrial?: (trial: Trial) => void; contractHash?: string }
+export interface RunOptions { out: string; signal?: AbortSignal; onTrial?: (trial: Trial) => void; contractHash?: string; onStep?: (testId: string, targetId: string, index: number) => void }
 export async function atomicJson(path: string, value: unknown) {
   const temporary = `${path}.${randomUUID()}.tmp`;
   await writeFile(temporary, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
@@ -39,7 +40,7 @@ async function runSuiteUnlocked(suite: Suite, options: RunOptions): Promise<Run>
   const config = await createConfig(options.out);
   const run: Run = {
     version: 2, id: randomUUID(), suiteName: suite.name, suiteHash: options.contractHash ?? hashSuite(suite), createdAt: new Date().toISOString(),
-    configurations: suiteTargets(suite).map(target => ({ ...target, proxy: false, stealth: false, version: null })),
+    configurations: suiteTargets(suite).map(target => ({ ...target, ...providerSettings(target), version: null })),
     host: { platform: platform(), arch: arch(), release: release(), cpus: cpus().length, memoryBytes: totalmem(), node: process.version },
     adapterVersion: await adapterVersion(), repetitions: suite.repetitions, trials: [], interrupted: false,
     testCases: suite.tests.map(t => ({ id: t.id, expectedStatus: t.expectedStatus ?? 'pass' })),
@@ -107,6 +108,7 @@ async function runTrial(test: TestCase, target: Target, repetition: number, atte
         if (step.action === 'extract' && value !== undefined) trial.output[step.as] = value;
         if (step.action === 'screenshot') trial.artifacts.push(`artifacts/${id}/${step.name}`);
         trial.steps.push({ index, action: step.action, durationMs: performance.now() - stepStarted });
+        options.onStep?.(test.id, target.id, index);
       } catch (e) {
         trial.steps.push({ index, action: step.action, durationMs: performance.now() - stepStarted, error: e instanceof Error ? e.message : String(e) });
         throw e;

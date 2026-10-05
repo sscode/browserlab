@@ -1,5 +1,5 @@
 export type Engine = 'chrome' | 'lightpanda';
-export type Provider = 'local' | 'browserbase' | 'browserless';
+export type Provider = 'local' | 'browserbase' | 'browserless' | 'steel' | 'browser-use' | 'brightdata' | 'hyperbrowser' | 'anchor';
 export interface Target { id: string; provider: Provider; engine: Engine; region?: string }
 export type Status = 'pass' | 'fail' | 'error' | 'timeout' | 'unsupported' | 'cancelled';
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -30,11 +30,11 @@ export interface Trial {
   durationMs: number; startupMs: number; workflowMs: number;
   peakRssKb: number | null; cpuMs: number | null; measurementMethod: string;
   steps: StepResult[]; assertions: AssertionResult[]; output: Record<string, Json>;
-  failurePhase?: 'setup' | 'workflow'; error?: string; cleanupError?: string; cleanupMethod?: 'graceful' | 'forced' | 'provider-confirmed'; artifacts: string[];
+  failurePhase?: 'setup' | 'workflow'; error?: string; cleanupError?: string; cleanupMethod?: 'graceful' | 'forced' | 'provider-confirmed' | 'cdp-confirmed' | 'not-created'; artifacts: string[];
 }
 export interface Run {
   version: 1 | 2; id: string; suiteName: string; suiteHash: string; createdAt: string;
-  configurations: { id?: string; provider?: Provider; engine: Engine; region?: string; version: string | null; proxy?: false; stealth?: false }[];
+  configurations: { id?: string; provider?: Provider; engine: Engine; region?: string; version: string | null; proxy?: false | 'provider-managed'; stealth?: false | 'provider-managed'; settingsVersion?: number; regionPolicy?: 'requested' | 'local' | 'provider-managed'; sessionTimeout?: 'local' | 'requested' | 'client-only' }[];
   host: { platform: string; arch: string; release: string; cpus: number; memoryBytes: number; node: string };
   adapterVersion: string; repetitions: number; trials: Trial[]; interrupted: boolean;
   testCases: { id: string; expectedStatus: Status }[];

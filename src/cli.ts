@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { acceptProviders } from './acceptance.js';
 import { loadEnvFile } from 'node:process';
 import { suiteTargets, selectTargets, requireCredentials, credentialValues, targetId } from './targets.js';
 import { redact } from './runner.js';
@@ -10,16 +11,17 @@ import { loadSuite, selectEngines, hashSuite, validateSuite } from './schema.js'
 import { runSuite, atomicJson } from './runner.js';
 import { compareRuns, defaultCompare, loadRun, runPassed } from './compare.js';
 import { writeReports } from './report.js';
-import { demoSuite, startFixtures } from './fixtures.js';
+import { demoSuite, hostedDemoSuite, startFixtures } from './fixtures.js';
 import { AgentBrowser, checkInstall, createConfig } from './adapter.js';
 import type { Comparison, Run, Suite } from './types.js';
 
-const help = `BrowserLab 0.2.0 — browser correctness and regression checks
+const help = `BrowserLab 0.3.0 — browser correctness and regression checks
 
 Usage:
   browserlab init [suite.json]             Create a portable starter suite
   browserlab doctor [--engines chrome]     Check actual engine startup and cleanup
   browserlab demo                          Execute 20 reference cases
+  browserlab accept --targets LIST --fixture-url URL  Run live provider acceptance
   browserlab fixtures --out DIRECTORY     Export reference pages for HTTPS hosting
   browserlab run <suite.json>              Execute a suite
   browserlab baseline accept <results>     Accept a passing result set
@@ -28,9 +30,9 @@ Usage:
 
 Options:
   --engines chrome,lightpanda   Select local engines (legacy suites supported)
-  --targets chrome,browserbase,browserless  Select execution targets
+  --targets chrome,browserbase,browserless  Select targets (also steel,browser-use,brightdata,hyperbrowser,anchor)
   --env-file FILE              Load local credentials (existing environment wins)
-  --fixture-url HTTPS_URL      Use hosted reference pages with demo
+  --fixture-url HTTPS_URL      Use hosted reference pages with demo or accept
   --repetitions N              Override repetitions (1–100)
   --out DIRECTORY             Report directory (must not contain results.json)
   --baseline FILE             Compare after execution; fail on regressions
@@ -59,10 +61,10 @@ async function main() {
   } });
   if (flags['env-file']) loadEnvFile(resolve(flags['env-file']));
   if (flags.targets && flags.engines) throw new Error('Use either --targets or --engines');
-  if (flags.version) { console.log('0.2.0'); return; }
+  if (flags.version) { console.log('0.3.0'); return; }
   if (flags.help || !positionals.length) { console.log(help); return; }
   const [command, ...args] = positionals;
-  const maxArgs: Record<string, number> = { init: 1, doctor: 0, demo: 0, fixtures: 0, run: 1, baseline: 2, compare: 2, report: 1 };
+  const maxArgs: Record<string, number> = { init: 1, doctor: 0, demo: 0, fixtures: 0, accept: 0, run: 1, baseline: 2, compare: 2, report: 1 };
   if (!(command! in maxArgs) || args.length > maxArgs[command!]!) throw new Error('Unknown command or extra arguments. Use --help.');
   const engines = flags.engines ? selectEngines(flags.engines) : undefined;
   const compareOptions = {
@@ -145,16 +147,13 @@ async function main() {
   let fixture: Awaited<ReturnType<typeof startFixtures>> | undefined;
   try {
     if (command === 'demo' && !flags['fixture-url']) fixture = await startFixtures();
-    let suite: Suite = command === 'demo' ? demoSuite(fixture?.url ?? flags['fixture-url']!) : await loadSuite(args[0]!);
-    if (flags['fixture-url'] && command !== 'demo') throw new Error('--fixture-url is only available with demo');
-    if (flags['fixture-url']) {
-      suite.tests.find(t => t.id === 'timeout')!.timeoutMs = 30000;
-      const url = new URL(flags['fixture-url']); if (url.search || url.hash) throw new Error('Fixture URL must have no query or fragment');
-      suite.tests.forEach(t => { const step = t.steps[0]!; if (step.action === 'open') step.url = url.href.endsWith('/') ? url.href : url.href + '/'; });
-      const link = suite.tests.find(t => t.id === 'attribute')!; link.assertions[0]!.value = './next/';
-      // Allow provider startup time; the explicit negative timeout keeps its own deadline.
-      suite.timeoutMs = 60000;
+    if (command === 'accept') {
+      if (!flags.targets || !flags['fixture-url']) throw new Error('Use accept --targets LIST --fixture-url HTTPS_URL --env-file .env');
+      const passed = await acceptProviders(selectTargets(flags.targets), flags['fixture-url'], out, abort.signal);
+      console.log(`Acceptance evidence: ${out}`); process.exitCode = abort.signal.aborted ? 130 : passed ? 0 : 1; return;
     }
+    let suite: Suite = command === 'demo' ? (flags['fixture-url'] ? hostedDemoSuite(flags['fixture-url']) : demoSuite(fixture!.url)) : await loadSuite(args[0]!);
+    if (flags['fixture-url'] && command !== 'demo') throw new Error('--fixture-url is only available with demo or accept');
     if (engines) suite = { version: 1, name: suite.name, engines, repetitions: suite.repetitions, timeoutMs: suite.timeoutMs, tests: suite.tests };
     if (flags.targets) suite = { version: 2, name: suite.name, targets: selectTargets(flags.targets), repetitions: suite.repetitions, timeoutMs: suite.timeoutMs, tests: suite.tests };
     if (flags.repetitions) suite.repetitions = numeric(flags.repetitions, 3, 1, 100);

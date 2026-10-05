@@ -7,7 +7,7 @@ import { mkdir, readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { execute, ProcessFailure, processRows, descendants } from './process.js';
 import type { Engine, Json, Step, Target } from './types.js';
 
-import { RemoteSession } from './providers.js';
+import { RemoteSession, type StopEvidence } from './providers.js';
 
 const require = createRequire(import.meta.url);
 export function binaryPath(): string {
@@ -80,7 +80,8 @@ export class AgentBrowser {
   async start(timeout: number, signal?: AbortSignal) {
     const started = performance.now();
     if (this.remote) {
-      const cdp = await this.remote.start(timeout, signal);
+      await this.remote.create(timeout, signal);
+      const cdp = this.remote.connect();
       this.temporaryConfig = await mkdtemp(join(tmpdir(), 'browserlab-remote-'));
       this.config = join(this.temporaryConfig, 'config.json');
       await writeFile(this.config, JSON.stringify({ cdp }), { mode: 0o600 });
@@ -91,6 +92,7 @@ export class AgentBrowser {
     return this.pid;
   }
   async version() {
+    if (this.target.provider === 'brightdata') return (await this.remote!.inspect()).browserVersion ?? null;
     if (this.engine === 'lightpanda') {
       // Lightpanda's CDP Browser.getVersion advertises a Chrome compatibility
       // version. Read the engine binary itself instead of mislabelling that value.
@@ -158,14 +160,15 @@ export class AgentBrowser {
       }
     }
   }
-  async close(): Promise<'graceful' | 'forced' | 'provider-confirmed'> {
+  async close(): Promise<'graceful' | 'forced' | StopEvidence> {
     let method: 'graceful' | 'forced' = 'graceful';
     const errors: string[] = [];
+    let remoteEvidence: StopEvidence = 'not-created';
     try { if (this.commandStarted) method = await this.closeLocal(); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
-    try { await this.remote?.close(); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
+    try { if (this.remote) remoteEvidence = await this.remote.stop(); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
     finally { if (this.temporaryConfig) await rm(this.temporaryConfig, { recursive: true, force: true }); }
     if (errors.length) throw new Error(errors.join('; '));
-    return this.remote ? 'provider-confirmed' : method;
+    return this.remote ? remoteEvidence : method;
   }
   private async closeLocal(): Promise<'graceful' | 'forced'> {
     // Capture only this session's process tree before a potentially blocked close.

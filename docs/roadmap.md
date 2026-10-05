@@ -34,7 +34,7 @@ The engineering scope includes accurate failure statuses, preserved retries, can
 
 ## Later work
 
-Browserbase and Browserless adapters are implemented at the owner's request. Provider protocol tests are available; live cloud acceptance needs user-supplied credentials. Additional providers require a demonstrated customer need. Agent-framework comparisons need a separate task contract and repeated stochastic trials. They must not replay engine-specific actions blindly.
+Browserbase, Browserless, Steel, Browser Use Cloud, Bright Data, Hyperbrowser, and Anchor adapters are implemented at the owner's request. Provider protocol tests are available; live cloud acceptance needs user-supplied credentials. Additional providers require a demonstrated customer need. Agent-framework comparisons need a separate task contract and repeated stochastic trials. They must not replay engine-specific actions blindly.
 
 The potential $99/month service adds team accounts, shared history, reviewed baselines, and CI reporting. Customer machines can continue to execute browsers. Account management, hosted storage, subscription billing, and customer acquisition are outside these first three engineering stages.
 

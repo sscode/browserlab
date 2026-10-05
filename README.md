@@ -1,10 +1,10 @@
 # BrowserLab
 
-**Check browser workflows before you release. Compare local browsers, Browserbase, and Browserless with the same correctness requirements.**
+**Check browser workflows before you release. Compare local browsers and seven cloud browser providers with the same correctness requirements.**
 
 BrowserLab is an open-source CLI. It executes workflows on selected local or hosted browsers, evaluates assertions, compares repeated trials, and creates an offline HTML report. Local runs need no account or model API key. Hosted targets need a provider account and key. No result upload is required.
 
-**Status: early alpha.** The adapters use agent-browser 0.38.2. Local Chrome and Lightpanda have real-engine verification. Browserbase and Browserless have protocol tests; live provider verification remains pending. This project is independent of those products. Start with read-only workflows and controlled test sites.
+**Status: early alpha.** The adapters use agent-browser 0.38.2. Local Chrome and Lightpanda have real-engine verification. Browserbase, Browserless, Steel, Browser Use Cloud, Bright Data, Hyperbrowser, and Anchor have protocol tests; live provider verification remains pending. This project is independent of those products. Start with read-only workflows and controlled test sites.
 
 ## Quick start
 
@@ -39,7 +39,7 @@ The npm name is provisional. This repository does not imply that `npm install br
 
 If you received an archive, follow the [archive installation steps](docs/release-notes.md#install-from-a-supplied-archive).
 
-## Browserbase and Browserless
+## Cloud providers
 
 Store your own keys locally:
 
@@ -48,10 +48,12 @@ cp .env.example .env
 chmod 600 .env
 # Edit .env locally, then:
 node dist/cli.js doctor --targets browserbase,browserless --env-file .env
-node dist/cli.js run examples/providers.json --env-file .env
+node dist/cli.js run examples/providers.json --targets chrome,browserbase,browserless --env-file .env
 ```
 
-The example compares local Chrome, Browserbase, and Browserless. Provider sessions can incur charges. Reports stay local. See [provider setup and verification limits](docs/providers.md) for regions, session cleanup, and controlled HTTPS fixtures.
+Supported targets: `browserbase`, `browserless`, `steel`, `browser-use`, `brightdata`, `hyperbrowser`, and `anchor`, plus local `chrome` and `lightpanda`. The command above selects three targets from the full example. Provider sessions can incur charges. Reports stay local.
+
+Use `browserlab accept --targets steel --fixture-url https://YOUR-HOST/fixtures/ --env-file .env` to check live execution and cleanup. See [provider setup and verification limits](docs/providers.md) for credentials, settings, and fixture hosting.
 
 ## Your first workflow
 

@@ -1,9 +1,7 @@
 import type { Suite, Target, Trial, Run } from './types.js';
 
-export const regions = {
-  browserbase: ['us-west-2', 'us-east-1', 'eu-central-1', 'ap-southeast-1'],
-  browserless: ['sfo', 'lon', 'ams'],
-};
+import { credentials, providerNames, regions } from './provider-config.js';
+export { regions } from './provider-config.js';
 export function validateTargets(input: unknown): Target[] {
   if (!Array.isArray(input) || !input.length || input.length > 20) throw new Error('targets: provide 1–20 configurations');
   const ids = new Set<string>();
@@ -11,13 +9,17 @@ export function validateTargets(input: unknown): Target[] {
     if (!t || typeof t !== 'object' || Array.isArray(t) || Object.keys(t).some(k => !['id', 'provider', 'engine', 'region'].includes(k))) throw new Error('Invalid target properties');
     if (typeof t.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(t.id) || ids.has(t.id)) throw new Error('Target IDs must be unique identifiers');
     ids.add(t.id);
-    if (!['local', 'browserbase', 'browserless'].includes(t.provider) || !['chrome', 'lightpanda'].includes(t.engine)) throw new Error('Invalid target provider or engine');
+    if (!providerNames.includes(t.provider) || !['chrome', 'lightpanda'].includes(t.engine)) throw new Error('Invalid target provider or engine');
     if (t.provider === 'local') {
       if (t.region !== undefined) throw new Error('Local targets do not have a provider region');
       return { id: t.id, provider: t.provider, engine: t.engine };
     }
     if (t.engine !== 'chrome') throw new Error('Hosted targets currently support Chrome only');
     const allowed = regions[t.provider as keyof typeof regions];
+    if (!allowed) {
+      if (t.region !== undefined) throw new Error(`${t.provider} uses a provider-managed region`);
+      return { id: t.id, provider: t.provider, engine: t.engine };
+    }
     const region = t.region ?? allowed[0];
     if (!allowed.includes(region)) throw new Error(`Invalid region for ${t.provider}`);
     return { id: t.id, provider: t.provider, engine: t.engine, region };
@@ -33,16 +35,17 @@ export function targetId(item: Trial | Run['configurations'][number]): string {
   return 'testId' in item ? item.targetId ?? item.engine : item.id ?? item.engine;
 }
 export function targetSettings(c: Run['configurations'][number]) {
-  return { provider: c.provider ?? 'local', engine: c.engine, region: c.region ?? null, proxy: c.proxy ?? false, stealth: c.stealth ?? false };
+  return { provider: c.provider ?? 'local', engine: c.engine, region: c.region ?? null, proxy: c.proxy ?? false, stealth: c.stealth ?? false, settingsVersion: c.settingsVersion ?? (c.provider && c.provider !== 'local' ? 0 : 1), regionPolicy: c.regionPolicy ?? (c.region ? 'requested' : 'local'), sessionTimeout: c.sessionTimeout ?? (c.provider && c.provider !== 'local' ? 'requested' : 'local') };
 }
 export function requireCredentials(targets: Target[]) {
   for (const target of targets) {
-    const name = target.provider === 'browserbase' ? 'BROWSERBASE_API_KEY' : target.provider === 'browserless' ? 'BROWSERLESS_API_KEY' : undefined;
-    if (name && !process.env[name]?.trim()) throw new Error(`Missing ${name}. Store it locally and use --env-file .env.`);
+    for (const name of credentials[target.provider]) {
+      if (!process.env[name]?.trim()) throw new Error(`Missing ${name}. Store it locally and use --env-file .env.`);
+    }
   }
 }
 export function credentialValues(): string[] {
-  return ['BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID', 'BROWSERLESS_API_KEY'].flatMap(k => process.env[k] ? [process.env[k]!] : []);
+  return [...Object.values(credentials).flat(), 'BROWSERBASE_PROJECT_ID'].flatMap(k => process.env[k] ? [process.env[k]!] : []);
 }
 export function remoteUrlCheck(suite: Suite) {
   if (!suiteTargets(suite).some(t => t.provider !== 'local')) return;

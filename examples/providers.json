@@ -2,19 +2,74 @@
   "version": 2,
   "name": "Compare local Chrome and cloud providers",
   "targets": [
-    { "id": "chrome", "provider": "local", "engine": "chrome" },
-    { "id": "browserbase", "provider": "browserbase", "engine": "chrome", "region": "us-west-2" },
-    { "id": "browserless", "provider": "browserless", "engine": "chrome", "region": "sfo" }
+    {
+      "id": "chrome",
+      "provider": "local",
+      "engine": "chrome"
+    },
+    {
+      "id": "browserbase",
+      "provider": "browserbase",
+      "engine": "chrome",
+      "region": "us-west-2"
+    },
+    {
+      "id": "browserless",
+      "provider": "browserless",
+      "engine": "chrome",
+      "region": "sfo"
+    },
+    {
+      "id": "steel",
+      "provider": "steel",
+      "engine": "chrome"
+    },
+    {
+      "id": "browser-use",
+      "provider": "browser-use",
+      "engine": "chrome"
+    },
+    {
+      "id": "brightdata",
+      "provider": "brightdata",
+      "engine": "chrome"
+    },
+    {
+      "id": "hyperbrowser",
+      "provider": "hyperbrowser",
+      "engine": "chrome"
+    },
+    {
+      "id": "anchor",
+      "provider": "anchor",
+      "engine": "chrome"
+    }
   ],
   "repetitions": 1,
   "timeoutMs": 60000,
-  "tests": [{
-    "id": "heading",
-    "name": "Read the example page heading",
-    "steps": [
-      { "action": "open", "url": "https://example.com" },
-      { "action": "extract", "as": "heading", "selector": "h1", "kind": "text" }
-    ],
-    "assertions": [{ "path": "/heading", "op": "equals", "value": "Example Domain" }]
-  }]
+  "tests": [
+    {
+      "id": "heading",
+      "name": "Read the example page heading",
+      "steps": [
+        {
+          "action": "open",
+          "url": "https://example.com"
+        },
+        {
+          "action": "extract",
+          "as": "heading",
+          "selector": "h1",
+          "kind": "text"
+        }
+      ],
+      "assertions": [
+        {
+          "path": "/heading",
+          "op": "equals",
+          "value": "Example Domain"
+        }
+      ]
+    }
+  ]
 }
