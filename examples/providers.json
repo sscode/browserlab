@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "name": "Compare local Chrome and cloud providers",
+  "targets": [
+    { "id": "chrome", "provider": "local", "engine": "chrome" },
+    { "id": "browserbase", "provider": "browserbase", "engine": "chrome", "region": "us-west-2" },
+    { "id": "browserless", "provider": "browserless", "engine": "chrome", "region": "sfo" }
+  ],
+  "repetitions": 1,
+  "timeoutMs": 60000,
+  "tests": [{
+    "id": "heading",
+    "name": "Read the example page heading",
+    "steps": [
+      { "action": "open", "url": "https://example.com" },
+      { "action": "extract", "as": "heading", "selector": "h1", "kind": "text" }
+    ],
+    "assertions": [{ "path": "/heading", "op": "equals", "value": "Example Domain" }]
+  }]
+}

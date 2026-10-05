@@ -1,11 +1,13 @@
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { execute, ProcessFailure, processRows, descendants } from './process.js';
-import type { Engine, Json, Step } from './types.js';
+import type { Engine, Json, Step, Target } from './types.js';
+
+import { RemoteSession } from './providers.js';
 
 const require = createRequire(import.meta.url);
 export function binaryPath(): string {
@@ -32,9 +34,21 @@ export async function adapterVersion() {
 export class AgentBrowser {
   readonly env = cleanEnvironment();
   private pid?: number;
-  constructor(readonly engine: Engine, readonly session: string, private config: string) {}
+  private remote?: RemoteSession;
+  private temporaryConfig?: string;
+  private commandStarted = false;
+  readonly target: Target;
+  readonly engine: Engine;
+  constructor(target: Target | Engine, readonly session: string, private config: string) {
+    this.target = typeof target === 'string' ? { id: target, provider: 'local', engine: target } : target;
+    this.engine = this.target.engine;
+    if (this.target.provider !== 'local') this.remote = new RemoteSession(this.target);
+  }
+  get secrets() { return this.remote?.secrets ?? []; }
+  get remoteSessionId() { return this.remote?.id; }
   private executable() {
     const cached = join(homedir(), '.cache', 'lightpanda-node', 'lightpanda');
+    if (this.target.provider !== 'local') return undefined;
     const specified = process.env[this.engine === 'chrome' ? 'BROWSERLAB_CHROME' : 'BROWSERLAB_LIGHTPANDA'];
     if (specified) return resolve(specified);
     if (this.engine === 'lightpanda') {
@@ -52,6 +66,7 @@ export class AgentBrowser {
     // Keep launch settings identical across commands. Changing the upstream timeout
     // environment causes agent-browser to relaunch the browser and discard the page.
     this.env.AGENT_BROWSER_DEFAULT_TIMEOUT = '25000';
+    this.commandStarted = true;
     const stdout = await execute(...invocation([...this.flags(), ...args]), { env: this.env, timeoutMs, signal, input });
     let response: { success: boolean; data?: Record<string, unknown>; error?: unknown };
     try { response = JSON.parse(stdout); } catch { throw new ProcessFailure('agent-browser returned invalid JSON'); }
@@ -63,7 +78,14 @@ export class AgentBrowser {
     return response.data ?? {};
   }
   async start(timeout: number, signal?: AbortSignal) {
-    await this.command(['open', 'about:blank'], timeout, signal);
+    const started = performance.now();
+    if (this.remote) {
+      const cdp = await this.remote.start(timeout, signal);
+      this.temporaryConfig = await mkdtemp(join(tmpdir(), 'browserlab-remote-'));
+      this.config = join(this.temporaryConfig, 'config.json');
+      await writeFile(this.config, JSON.stringify({ cdp }), { mode: 0o600 });
+    }
+    await this.command(['open', 'about:blank'], Math.max(1, timeout - (performance.now() - started)), signal);
     const info = await this.command(['session', 'info'], 3000, signal);
     if (typeof info.pid === 'number' && info.namespace === 'browserlab' && info.session === this.session) this.pid = info.pid;
     return this.pid;
@@ -136,7 +158,16 @@ export class AgentBrowser {
       }
     }
   }
-  async close(): Promise<'graceful' | 'forced'> {
+  async close(): Promise<'graceful' | 'forced' | 'provider-confirmed'> {
+    let method: 'graceful' | 'forced' = 'graceful';
+    const errors: string[] = [];
+    try { if (this.commandStarted) method = await this.closeLocal(); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
+    try { await this.remote?.close(); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
+    finally { if (this.temporaryConfig) await rm(this.temporaryConfig, { recursive: true, force: true }); }
+    if (errors.length) throw new Error(errors.join('; '));
+    return this.remote ? 'provider-confirmed' : method;
+  }
+  private async closeLocal(): Promise<'graceful' | 'forced'> {
     // Capture only this session's process tree before a potentially blocked close.
     if (!this.pid) {
       try { const info = await this.command(['session', 'info'], 2000); if (info.namespace === 'browserlab' && info.session === this.session && typeof info.pid === 'number') this.pid = info.pid; } catch { /* startup may have failed */ }

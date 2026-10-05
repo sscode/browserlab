@@ -6,8 +6,9 @@ Version 1 uses JSON. Unknown properties are errors. A passing test must have at 
 
 | Field | Requirement |
 | --- | --- |
-| `version` | Must be `1`. |
+| `version` | `1` for local `engines`; `2` for execution `targets`. |
 | `name` | A nonempty name. |
+| `targets` | Version 2: unique target IDs with provider, engine, and optional region. See [providers](providers.md). |
 | `engines` | Unique entries from `chrome` and `lightpanda`. Default: both. |
 | `repetitions` | Integer from 1 to 100. Default: 3. |
 | `timeoutMs` | Integer from 100 to 600000. Default: 30000. |

@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { startFixtures, demoSuite } from '../fixtures.js';
 import { loadRun } from '../compare.js';
+import { AgentBrowser, createConfig } from '../adapter.js';
 import type { Suite } from '../types.js';
 
 // Deliberately separate from fast unit tests. These tests require real engines.
@@ -71,5 +72,24 @@ try {
   assert.equal(cancelled.trials[0]!.cleanupError, undefined);
   assert.match(await readFile(join(root, 'cancelled/junit.xml'), 'utf8'), /Execution is interrupted or incomplete/);
   console.log('✓ SIGINT preserves partial results, fails CI, and closes the active session');
+  const config = await createConfig(join(root, 'cdp'));
+  const owner = new AgentBrowser('chrome', `owner-${Date.now()}`, config);
+  let attached: AgentBrowser | undefined;
+  try {
+    await owner.start(15000);
+    const endpoint = await owner.command(['get', 'cdp-url']);
+    assert.equal(typeof endpoint.cdpUrl, 'string');
+    const attachedConfig = join(root, 'cdp', 'attached.json');
+    await writeFile(attachedConfig, JSON.stringify({ cdp: endpoint.cdpUrl }), { mode: 0o600 });
+    attached = new AgentBrowser('chrome', `attached-${Date.now()}`, attachedConfig);
+    await attached.start(15000);
+    await attached.command(['open', fixture.url]);
+    const heading = await attached.command(['eval', 'document.querySelector("h1").textContent']);
+    assert.equal(heading.result, 'Field equipment');
+    assert.equal((await attached.command(['get', 'cdp-url'])).cdpUrl, endpoint.cdpUrl);
+    await attached.close(); attached = undefined;
+    assert.equal((await owner.command(['eval', 'document.querySelector("h1").textContent'])).result, 'Field equipment');
+    console.log('✓ Private CDP configuration connects to an existing browser and detaches cleanly');
+  } finally { if (attached) await attached.close(); await owner.close(); }
   console.log(`Integration evidence: ${root}`);
 } finally { await fixture.close(); }

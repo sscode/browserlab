@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import type { Suite, TestCase, Step, Assertion } from './types.js';
+import type { LegacySuite, TestCase, Step, Assertion } from './types.js';
 
 export async function startFixtures() {
   let regression = false;
@@ -32,7 +32,7 @@ export async function startFixtures() {
   return { url: `http://127.0.0.1:${address.port}`, setRegression: (value: boolean) => { regression = value; }, close: () => new Promise<void>((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections(); }) };
 }
 
-export function demoSuite(baseUrl: string, repetitions = 3): Suite {
+export function demoSuite(baseUrl: string, repetitions = 3): LegacySuite {
   const tests: TestCase[] = [];
   const add = (id: string, name: string, steps: Step[], assertions: Assertion[], extra: Partial<TestCase> = {}) => tests.push({ id, name, steps: [{ action: 'open', url: baseUrl }, ...steps], assertions, ...extra });
   const text = (selector: string, as = 'value'): Step => ({ action: 'extract', as, selector, kind: 'text' });

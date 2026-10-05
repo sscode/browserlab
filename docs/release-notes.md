@@ -1,6 +1,12 @@
-# BrowserLab 0.1.0 alpha
+# BrowserLab 0.2.0 alpha
 
-This is the first local, open-source release candidate. It targets read-only browser workflows on macOS and Linux.
+This open-source alpha adds hosted browser targets. The CLI runs on macOS and Linux and targets read-only browser workflows.
+
+## Provider support
+
+This alpha adds Browserbase and Browserless, version 2 target configurations, local environment-file loading, and exported remote test fixtures. Local suites and old results remain supported. Remote session stop failures fail the run. Cloud CPU, memory, and costs remain unavailable.
+
+Provider API behavior is covered by protocol tests. Live cloud acceptance is pending user-supplied credentials. See [provider setup](providers.md).
 
 ## Included
 
@@ -30,7 +36,7 @@ Customer adoption has not been validated. Reference-suite success does not prove
 mkdir browserlab-pilot
 cd browserlab-pilot
 npm init -y
-npm install /absolute/path/to/browserlab-0.1.0.tgz
+npm install /absolute/path/to/browserlab-0.2.0.tgz
 npx agent-browser install
 node node_modules/browserlab/scripts/install-lightpanda.mjs 1.0.0
 npx browserlab doctor

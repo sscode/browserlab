@@ -1,3 +1,4 @@
+import { validateTargets } from './targets.js';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { Suite, Engine, Json } from './types.js';
@@ -24,11 +25,12 @@ function rule(x: Record<string, unknown>, where: string) {
 }
 export function validateSuite(input: unknown): Suite {
   if (!object(input)) fail('suite', 'expected an object');
-  keys(input, ['version', 'name', 'engines', 'repetitions', 'timeoutMs', 'tests'], 'suite');
-  if (input.version !== 1) fail('suite.version', 'only version 1 is supported');
+  keys(input, ['version', 'name', input.version === 2 ? 'targets' : 'engines', 'repetitions', 'timeoutMs', 'tests'], 'suite');
+  if (input.version !== 1 && input.version !== 2) fail('suite.version', 'use version 1 (engines) or 2 (targets)');
   str(input.name, 'suite.name');
   const engines = input.engines ?? ['chrome', 'lightpanda'];
   if (!Array.isArray(engines) || !engines.length || engines.some(e => e !== 'chrome' && e !== 'lightpanda') || new Set(engines).size !== engines.length) fail('suite.engines', 'use unique chrome and/or lightpanda entries');
+  const targets = input.version === 2 ? validateTargets(input.targets) : undefined;
   const repetitions = input.repetitions ?? 3, timeoutMs = input.timeoutMs ?? 30000;
   integer(repetitions, 1, 100, 'suite.repetitions'); integer(timeoutMs, 100, 600000, 'suite.timeoutMs');
   if (!Array.isArray(input.tests) || !input.tests.length || input.tests.length > 1000) fail('suite.tests', 'expected 1–1,000 tests');
@@ -95,12 +97,12 @@ export function validateSuite(input: unknown): Suite {
       } else rule(a, p);
     }
   }
-  return { ...input, engines, repetitions, timeoutMs } as unknown as Suite;
+  return { ...input, ...(targets ? { targets } : { engines }), repetitions, timeoutMs } as unknown as Suite;
 }
 export async function loadSuite(path: string) { return validateSuite(JSON.parse(await readFile(path, 'utf8'))); }
 export function hashSuite(suite: Suite): string {
   // Engine selection and repetition count may change without changing the task contract.
-  return createHash('sha256').update(JSON.stringify({ version: suite.version, timeoutMs: suite.timeoutMs, tests: suite.tests })).digest('hex');
+  return createHash('sha256').update(JSON.stringify({ version: 1, timeoutMs: suite.timeoutMs, tests: suite.tests })).digest('hex');
 }
 export function selectEngines(value: string): Engine[] {
   const engines = value.split(',');

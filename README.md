@@ -1,10 +1,10 @@
 # BrowserLab
 
-**Check browser workflows before you release. Compare Chrome and Lightpanda with the same correctness requirements.**
+**Check browser workflows before you release. Compare local browsers, Browserbase, and Browserless with the same correctness requirements.**
 
-BrowserLab is an open-source CLI. It executes workflows locally, evaluates assertions, compares repeated trials, and creates an offline HTML report. No account, model API key, or result upload is required.
+BrowserLab is an open-source CLI. It executes workflows on selected local or hosted browsers, evaluates assertions, compares repeated trials, and creates an offline HTML report. Local runs need no account or model API key. Hosted targets need a provider account and key. No result upload is required.
 
-**Status: early alpha.** The first adapters use agent-browser 0.38.2 with Chrome and Lightpanda. This project is independent of those products. Start with read-only workflows and controlled test sites.
+**Status: early alpha.** The adapters use agent-browser 0.38.2. Local Chrome and Lightpanda have real-engine verification. Browserbase and Browserless have protocol tests; live provider verification remains pending. This project is independent of those products. Start with read-only workflows and controlled test sites.
 
 ## Quick start
 
@@ -38,6 +38,20 @@ browserlab run browserlab.json
 The npm name is provisional. This repository does not imply that `npm install browserlab` installs this project. Use a repository checkout or an explicitly supplied release archive until a package is published.
 
 If you received an archive, follow the [archive installation steps](docs/release-notes.md#install-from-a-supplied-archive).
+
+## Browserbase and Browserless
+
+Store your own keys locally:
+
+```sh
+cp .env.example .env
+chmod 600 .env
+# Edit .env locally, then:
+node dist/cli.js doctor --targets browserbase,browserless --env-file .env
+node dist/cli.js run examples/providers.json --env-file .env
+```
+
+The example compares local Chrome, Browserbase, and Browserless. Provider sessions can incur charges. Reports stay local. See [provider setup and verification limits](docs/providers.md) for regions, session cleanup, and controlled HTTPS fixtures.
 
 ## Your first workflow
 
@@ -116,13 +130,13 @@ These are workload measurements, not universal browser rankings. No cost estimat
 | `BROWSERLAB_LIGHTPANDA` | Path to a specific Lightpanda executable; also sets the installer destination |
 | `BROWSERLAB_AGENT_BROWSER` | Override adapter executable, for development |
 
-The runner uses a dedicated agent-browser namespace and an empty adapter configuration. It excludes inherited agent-browser configuration and proxy variables. It never connects to your personal browser profile. The Lightpanda installer verifies the publisher's SHA-256 checksum and installs version 1.0.0.
+The runner uses a dedicated agent-browser namespace and an isolated adapter configuration. Remote connection URLs use private temporary files. It excludes inherited agent-browser configuration and proxy variables. It never connects to your personal browser profile. The Lightpanda installer verifies the publisher's SHA-256 checksum and installs version 1.0.0.
 
 ## Scope and limitations
 
 Supported steps: open, click, fill, wait for element presence, extract, and Chrome screenshots. Steps use CSS selectors. A screenshot step is unsupported on Lightpanda and is reported before execution.
 
-BrowserLab does not yet support arbitrary Playwright scripts, hosted browser providers, browser agents, model evaluations, or automatic engine selection. The [roadmap](docs/roadmap.md) separates engineering progress from customer validation.
+BrowserLab does not yet support arbitrary Playwright scripts, browser agents, model evaluations, or automatic engine selection. The [roadmap](docs/roadmap.md) separates engineering progress from customer validation.
 
 Workflows can interact with websites. Read-only use is a scope requirement, not a network security boundary. Do not assume that a click or form submission is harmless. Use controlled environments for repeated actions.
 

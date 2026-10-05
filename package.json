@@ -1,7 +1,7 @@
 {
   "name": "browserlab",
-  "version": "0.1.0",
-  "description": "Local correctness and regression tests for browser automation across Chrome and Lightpanda.",
+  "version": "0.2.0",
+  "description": "Correctness and regression tests across local browsers, Browserbase, and Browserless.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -17,7 +17,8 @@
     "docs",
     "scripts/install-lightpanda.mjs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    ".env.example"
   ],
   "scripts": {
     "build": "tsc",

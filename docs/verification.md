@@ -33,6 +33,24 @@ Exact engine checks after that correction: Chrome 154.0.8037.93 and Lightpanda 1
 
 The reference suite contains deliberate failures. Matching those expectations proves that the runner detects the selected error conditions. It does not mean that all 200 trials extracted valid data.
 
+## Version 0.2.0 provider checks
+
+The Browserbase and Browserless additions were checked on the same macOS host. No live cloud credentials were used.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Type checks and unit/process tests | Passed; 29 tests | `npm run check`, `npm test` |
+| Provider protocols | Simulated creation, release, failure, and uncertain cleanup passed | `src/test/providers.test.ts` |
+| Credential isolation | Private connection file; no provider key in child environment or arguments; connection token redacted | Mock runner test |
+| Missing credentials | Exit 2 before output directory or session creation | CLI check using `examples/providers.json` |
+| Real browser integration | Defect, screenshot, secret handling, cancellation, and private CDP attachment passed | `.browserlab/integration-1791159252777/` |
+| New target format | 40/40 declared outcomes matched on local Chrome and Lightpanda | `.browserlab/providers-local-smoke/results.json` |
+| Exported static reference pages | 20/20 declared outcomes matched on local Chrome with a URL path prefix | `.browserlab/exported-fixture-smoke/results.json` |
+| Report controls and layout | Provider filters, unexpected-only empty state, custom IDs, and long names checked at desktop and 390px width | Clearly labelled simulated report; no cloud benchmark claims |
+| Package contents | `.env.example` included; actual `.env`, run data, and test files excluded | `npm pack --dry-run` |
+
+Actual Browserbase and Browserless acceptance remains pending. Users store their keys locally and run the checks described in [provider setup](providers.md). Protocol mocks and a local CDP connection do not prove live account compatibility, remote cleanup, or provider performance.
+
 ## Installer observation
 
 A fresh engine re-download exceeded the initial three-minute limit. The installer now streams downloads, shows progress, permits ten minutes, and reuses only a binary that matches the publisher's checksum.

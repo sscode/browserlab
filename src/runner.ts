@@ -6,7 +6,8 @@ import { AgentBrowser, adapterVersion, createConfig } from './adapter.js';
 import { evaluate } from './assertions.js';
 import { hashSuite } from './schema.js';
 import { Sampler, ProcessFailure } from './process.js';
-import type { Engine, Run, Suite, TestCase, Trial } from './types.js';
+import { suiteTargets, requireCredentials, remoteUrlCheck, credentialValues } from './targets.js';
+import type { Target, Run, Suite, TestCase, Trial } from './types.js';
 
 export interface RunOptions { out: string; signal?: AbortSignal; onTrial?: (trial: Trial) => void; contractHash?: string }
 export async function atomicJson(path: string, value: unknown) {
@@ -24,6 +25,7 @@ export function redact<T>(value: T, secrets: string[]): T {
   return visit(value) as T;
 }
 export async function runSuite(suite: Suite, options: RunOptions): Promise<Run> {
+  requireCredentials(suiteTargets(suite)); remoteUrlCheck(suite);
   await mkdir(options.out, { recursive: true });
   const lockPath = join(options.out, 'run.lock');
   const lock = await open(lockPath, 'wx').catch(() => { throw new Error('Output directory is locked by another run. Use a new output directory.'); });
@@ -36,25 +38,26 @@ export async function runSuite(suite: Suite, options: RunOptions): Promise<Run> 
 async function runSuiteUnlocked(suite: Suite, options: RunOptions): Promise<Run> {
   const config = await createConfig(options.out);
   const run: Run = {
-    version: 1, id: randomUUID(), suiteName: suite.name, suiteHash: options.contractHash ?? hashSuite(suite), createdAt: new Date().toISOString(),
-    configurations: suite.engines.map(engine => ({ engine, version: null })),
+    version: 2, id: randomUUID(), suiteName: suite.name, suiteHash: options.contractHash ?? hashSuite(suite), createdAt: new Date().toISOString(),
+    configurations: suiteTargets(suite).map(target => ({ ...target, proxy: false, stealth: false, version: null })),
     host: { platform: platform(), arch: arch(), release: release(), cpus: cpus().length, memoryBytes: totalmem(), node: process.version },
     adapterVersion: await adapterVersion(), repetitions: suite.repetitions, trials: [], interrupted: false,
     testCases: suite.tests.map(t => ({ id: t.id, expectedStatus: t.expectedStatus ?? 'pass' })),
   };
-  const secrets = suite.tests.flatMap(t => t.steps.flatMap(s => s.action === 'fill' && s.env && process.env[s.env] ? [process.env[s.env]!] : []));
+  const secrets = [...credentialValues(), ...suite.tests.flatMap(t => t.steps.flatMap(s => s.action === 'fill' && s.env && process.env[s.env] ? [process.env[s.env]!] : []))];
   for (let rep = 0; rep < suite.repetitions; rep++) {
     for (const [index, test] of suite.tests.entries()) {
-      const engines = (rep + index) % 2 ? [...suite.engines].reverse() : suite.engines;
-      for (const engine of engines) {
+      const targets = suiteTargets(suite);
+      if ((rep + index) % 2) targets.reverse();
+      for (const target of targets) {
         if (options.signal?.aborted) { run.interrupted = true; break; }
         for (let attempt = 0; attempt <= (test.retries ?? 0); attempt++) {
-          const trial = await runTrial(test, engine, rep, attempt, suite.timeoutMs, config, options, run);
+          const trial = await runTrial(test, target, rep, attempt, suite.timeoutMs, config, options, run);
           const clean = redact(trial, secrets);
           run.trials.push(clean);
           await atomicJson(join(options.out, 'results.json'), run);
           options.onTrial?.(clean);
-          if (trial.matchedExpectation || trial.status === 'unsupported' || trial.status === 'cancelled') break;
+          if (trial.matchedExpectation || trial.status === 'unsupported' || trial.status === 'cancelled' || trial.cleanupError) break;
         }
       }
       if (run.interrupted) break;
@@ -65,10 +68,10 @@ async function runSuiteUnlocked(suite: Suite, options: RunOptions): Promise<Run>
   await atomicJson(join(options.out, 'results.json'), run);
   return run;
 }
-async function runTrial(test: TestCase, engine: Engine, repetition: number, attempt: number, defaultTimeout: number, config: string, options: RunOptions, run: Run): Promise<Trial> {
-  const id = randomUUID();
+async function runTrial(test: TestCase, target: Target, repetition: number, attempt: number, defaultTimeout: number, config: string, options: RunOptions, run: Run): Promise<Trial> {
+  const id = randomUUID(), engine = target.engine;
   const trial: Trial = {
-    id, testId: test.id, testName: test.name, engine, repetition, attempt, expectedStatus: test.expectedStatus ?? 'pass',
+    id, testId: test.id, testName: test.name, engine, targetId: target.id, costUsd: null, repetition, attempt, expectedStatus: test.expectedStatus ?? 'pass',
     status: 'error', matchedExpectation: false, startedAt: new Date().toISOString(), durationMs: 0, startupMs: 0, workflowMs: 0,
     peakRssKb: null, cpuMs: null, measurementMethod: 'Unavailable', steps: [], assertions: [], output: {}, artifacts: [],
   };
@@ -77,10 +80,10 @@ async function runTrial(test: TestCase, engine: Engine, repetition: number, atte
     trial.matchedExpectation = trial.status === trial.expectedStatus; return trial;
   }
   for (const s of test.steps) if (s.action === 'fill' && s.env && process.env[s.env] === undefined) {
-    trial.error = `Missing environment variable ${s.env}`;
-    trial.matchedExpectation = trial.status === trial.expectedStatus; return trial;
+    trial.error = `Missing environment variable ${s.env}`; trial.failurePhase = 'setup';
+    trial.matchedExpectation = false; return trial;
   }
-  const adapter = new AgentBrowser(engine, `bl-${id}`, config);
+  const adapter = new AgentBrowser(target, `bl-${id}`, config);
   const started = performance.now(), deadline = started + (test.timeoutMs ?? defaultTimeout);
   const remaining = () => {
     if (options.signal?.aborted) throw new ProcessFailure('Execution cancelled', 'cancelled');
@@ -93,8 +96,8 @@ async function runTrial(test: TestCase, engine: Engine, repetition: number, atte
   try {
     const pid = await adapter.start(remaining(), options.signal);
     trial.startupMs = performance.now() - started;
-    if (pid) { sampler = new Sampler(pid); sampler.start(); }
-    const configuration = run.configurations.find(c => c.engine === engine)!;
+    if (pid && target.provider === 'local') { sampler = new Sampler(pid); sampler.start(); }
+    const configuration = run.configurations.find(c => c.id === target.id)!;
     if (!configuration.version) configuration.version = await adapter.version().catch(() => null);
     workflowStarted = performance.now();
     for (const [index, step] of test.steps.entries()) {
@@ -112,10 +115,12 @@ async function runTrial(test: TestCase, engine: Engine, repetition: number, atte
     trial.assertions = evaluate(trial.output, test.assertions);
     trial.status = trial.assertions.every(a => a.passed) ? 'pass' : 'fail';
   } catch (error) {
-    trial.status = error instanceof ProcessFailure ? error.kind : 'error';
+    trial.status = options.signal?.aborted ? 'cancelled' : error instanceof ProcessFailure ? error.kind : 'error';
+    trial.failurePhase = workflowStarted === undefined ? 'setup' : 'workflow';
     trial.error = error instanceof Error ? error.message : String(error);
   } finally {
     trial.durationMs = performance.now() - started;
+    if (workflowStarted === undefined) trial.startupMs = trial.durationMs;
     trial.workflowMs = workflowStarted === undefined ? 0 : performance.now() - workflowStarted;
     if (sampler) {
       await sampler.stop();
@@ -124,6 +129,8 @@ async function runTrial(test: TestCase, engine: Engine, repetition: number, atte
     }
     try { trial.cleanupMethod = await adapter.close(); } catch (error) { trial.cleanupError = error instanceof Error ? error.message : String(error); }
   }
-  trial.matchedExpectation = trial.status === trial.expectedStatus && !trial.cleanupError;
-  return trial;
+  if (target.provider !== 'local') trial.measurementMethod = 'Client-observed time includes provider startup, network transport and waits. Remote CPU, memory and billed cost are unavailable.';
+  trial.remoteSessionId = adapter.remoteSessionId;
+  trial.matchedExpectation = trial.status === trial.expectedStatus && !trial.cleanupError && trial.failurePhase !== 'setup';
+  return redact(trial, [...credentialValues(), ...adapter.secrets]);
 }
